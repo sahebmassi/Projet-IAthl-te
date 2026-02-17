@@ -7,9 +7,6 @@ from onnxOptimiser import *
 from exportationDonneeCSV import exportationCSV, incrementerIndice
 import mediapipe as mp
 
-HAUTEUR = 480
-LARGEUR = 640
-
 # ========== CONSTANTES DE TRACKING ==========
 MAX_DISTANCE_BOX = 500  # Distance max pour matcher (augmenté de 300 pour squat)
 HISTORY_SIZE = 5  # Nombre de frames précédentes à garder
@@ -211,16 +208,22 @@ def initialisationDataVideo(videoPath: str, id: int):
             angle = 0
 
     capture = cv2.VideoCapture(videoPath)
-    capture.set(cv2.CAP_PROP_FRAME_WIDTH, LARGEUR)
-    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HAUTEUR)
+    # NE PAS forcer la taille pour fichiers vidéo (webcam ok)
+    if isinstance(videoPath, int):
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, LARGEUR)
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HAUTEUR)
     capture.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)
 
+    # Récupérer les dimensions natives de la vidéo
+    W = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+    H = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    
     winName = "Pose Detection" + str(id)
     cv2.namedWindow(winName, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(winName, LARGEUR, HAUTEUR)
+    cv2.resizeWindow(winName, W, H)
     cv2.setWindowProperty(winName, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(winName, mouseCallBack)
-    return capture, angle, winName
+    return capture, angle, winName, W, H
 
 
 def captureVideo(mediaPipe: bool = True,
@@ -251,17 +254,17 @@ def captureVideo(mediaPipe: bool = True,
         )
     
     modelYolo = yolo
-    capture, angleVideo, winName = initialisationDataVideo(videoPath, id)
+    capture, angleVideo, winName, W, H = initialisationDataVideo(videoPath, id)
     if not capture.isOpened():
         print(f"[ERREUR Process {id}] Échec de l'ouverture de la capture pour: {videoPath}")
         return
 
     if enregistrerVideoAvant is not None:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        outAvant = cv2.VideoWriter(enregistrerVideoAvant, fourcc, 20.0, (LARGEUR, HAUTEUR))
+        outAvant = cv2.VideoWriter(enregistrerVideoAvant, fourcc, 20.0, (W, H))
     if enregistrementVideoApres is not None:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        outApres = cv2.VideoWriter(enregistrementVideoApres, fourcc, 20.0, (LARGEUR, HAUTEUR))
+        outApres = cv2.VideoWriter(enregistrementVideoApres, fourcc, 20.0, (W, H))
 
     touteCoordonnees = []
 
@@ -347,24 +350,6 @@ def captureVideo(mediaPipe: bool = True,
                         if last_valid_keypoints:
                             arts = [last_valid_keypoints]
                             boxes = []
-            else:
-                # YOLO vide
-                frames_without_detection += 1
-                
-                if frames_without_detection >= MAX_FRAMES_WITHOUT_YOLO:
-                    print(f"[INFO] YOLO absent {MAX_FRAMES_WITHOUT_YOLO} frames. MediaPipe seul...")
-                    mp_keypoints = _extract_mediapipe_skeleton(image, modelMP)
-                    if mp_keypoints:
-                        arts = mp_keypoints
-                        boxes = []
-                        last_valid_keypoints = arts[0]
-                    else:
-                        if last_valid_keypoints:
-                            arts = [last_valid_keypoints]
-                            boxes = []
-                        else:
-                            arts = []
-                            boxes = []
         else:
             # Athlète non verrouillé => utiliser YOLO normalement
             if boxes and arts:
@@ -388,8 +373,8 @@ def captureVideo(mediaPipe: bool = True,
         # Traitement métier
         mouvementReussi = traitementVideo(touteCoordonnees, image, winName)
 
-        # Afficher image
-        image_resized = cv2.resize(image, (LARGEUR, HAUTEUR), interpolation=cv2.INTER_AREA)
+        # Afficher image à résolution native (pas de resize)
+        image_display = image.copy()
         
         # Afficher status
         if athlete_locked:
@@ -402,18 +387,17 @@ def captureVideo(mediaPipe: bool = True,
             elif len(history_boxes) > 1:
                 status_text = f"LOCKED (tracking: {len(history_boxes)} frames)"
             
-            cv2.putText(image_resized, f"[{status_text}]", (10, 30),
+            cv2.putText(image_display, f"[{status_text}]", (10, 30),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
         
-        cv2.imshow(winName, image_resized)
+        cv2.imshow(winName, image_display)
 
         if enregistrementJson is not None:
             exportationCSV(touteCoordonnees, enregistrementJson, mouvement)
 
         fin = time.time()
-        image_out = cv2.resize(image, (LARGEUR, HAUTEUR), interpolation=cv2.INTER_AREA)
         if enregistrementVideoApres is not None:
-            outApres.write(image_out)
+            outApres.write(image)
 
         # =============================
         # Gestion clavier + Fermeture
@@ -429,25 +413,17 @@ def captureVideo(mediaPipe: bool = True,
             _selected_index = None
             _clicked_point = None
 
-            sel_img = cv2.resize(image.copy(), (LARGEUR, HAUTEUR), interpolation=cv2.INTER_AREA)
-
-            H0, W0 = image.shape[:2]
-            sx = LARGEUR / float(W0)
-            sy = HAUTEUR / float(H0)
-
-            scaled_boxes = []
-            for (xMin, yMin, xMax, yMax) in boxes:
-                scaled_boxes.append((
-                    int(xMin * sx), int(yMin * sy),
-                    int(xMax * sx), int(yMax * sy)
-                ))
-
-            _draw_numbered_boxes(sel_img, scaled_boxes)
+            # Pas de resize: utiliser l'image native
+            sel_img = image.copy()
+            
+            # Pas besoin de conversion d'échelle (sx=sy=1.0)
+            # Les boxes sont déjà en coordonnées natives
+            _draw_numbered_boxes(sel_img, boxes)
 
             sel_win = f"Selection Athlete {id}"
             cv2.namedWindow(sel_win, cv2.WINDOW_NORMAL)
-            cv2.resizeWindow(sel_win, LARGEUR, HAUTEUR)
-            cv2.moveWindow(sel_win, 50 + LARGEUR, 50)
+            cv2.resizeWindow(sel_win, W, H)
+            cv2.moveWindow(sel_win, 50 + W, 50)
 
             while paused:
                 cv2.imshow(sel_win, sel_img)

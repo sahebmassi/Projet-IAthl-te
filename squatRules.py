@@ -7,6 +7,8 @@ Détecte 3 défauts principaux:
 """
 
 import math
+import numpy as np
+from scipy.signal import savgol_filter
 from enumIndice import IndiceYolo
 
 
@@ -19,21 +21,18 @@ class SquatAnalyzer:
         self.END_ANGLE = 160.0  # Angle pour finir le mouvement
         self.RISE_THRESHOLD = 3.0  # Seuil pour détecter le fond
         self.DESCENT_TOLERANCE = 2.0  # Tolérance pour la redescente
-        self.PIED_MOVEMENT_THRESHOLD = 20  # Pixels de tolérance pour le mouvement des pieds
         self.VERTICAL_MOVEMENT_THRESHOLD = 10  # Mouvement vertical min pour détecter une phase
         
         # État du mouvement
         self.movement_active = False
         self.bottom_reached = False
         self.fault_downward = False
-        self.pied_en_avant = False
         self.depth_insuffisante = False
         
         # Historique
         self.min_knee_angle = None
         self.min_depth_score = 0.0
         self.prev_avg_knee = None
-        self.positions_pieds_init = None
         self.positions_hanches_init = None
         self.frame_defaut = -1
         self.defaut_type = None
@@ -94,18 +93,6 @@ class SquatAnalyzer:
         except (IndexError, TypeError):
             return 0.0
     
-    def get_foot_positions(self, keypoints):
-        """Récupère les positions des pieds"""
-        if len(keypoints) < 17:
-            return None, None
-        
-        try:
-            left_ankle = keypoints[IndiceYolo.TALON_GAUCHE.value]
-            right_ankle = keypoints[IndiceYolo.TALON_DROIT.value]
-            return left_ankle, right_ankle
-        except (IndexError, TypeError):
-            return None, None
-    
     def analyze_frame(self, keypoints, frame_number):
         """
         Analyse un frame et détecte les défauts
@@ -143,9 +130,8 @@ class SquatAnalyzer:
         except (IndexError, TypeError):
             return result
         
-        # Initialiser les positions au premier frame
-        if self.positions_pieds_init is None:
-            self.positions_pieds_init = self.get_foot_positions(keypoints)
+        # Initialiser au premier frame
+        if self.hanche_y_init is None:
             self.hanche_y_init = hanche_y_current
             self.hanche_y_prev = hanche_y_current
             return result
@@ -167,26 +153,6 @@ class SquatAnalyzer:
                 result["phase"] = "descente"
         else:
             # En mouvement
-            # Vérifier le mouvement des pieds (PIED_EN_AVANT)
-            if not self.pied_en_avant:
-                left_ankle, right_ankle = self.get_foot_positions(keypoints)
-                left_init, right_init = self.positions_pieds_init
-                
-                if left_ankle and right_ankle and left_init and right_init:
-                    left_move = abs(left_ankle[0] - left_init[0])
-                    right_move = abs(right_ankle[0] - right_init[0])
-                    
-                    if left_move > self.PIED_MOVEMENT_THRESHOLD or right_move > self.PIED_MOVEMENT_THRESHOLD:
-                        self.pied_en_avant = True
-                        self.defaut_type = "PIED_EN_AVANT"
-                        self.frame_defaut = frame_number
-                        result["verdict"] = "REFUSE"
-                        result["defaut"] = "PIED_EN_AVANT"
-                        result["message"] = f"PIED_EN_AVANT: Talon gauche bouge de {left_move:.0f}px, talon droit de {right_move:.0f}px (seuil: {self.PIED_MOVEMENT_THRESHOLD}px)"
-                        result["instant_defaut"] = frame_number
-                        self.movement_active = False
-                        return result
-            
             # Mettre à jour les valeurs de profondeur
             if avg_knee is not None:
                 self.min_knee_angle = min(self.min_knee_angle, avg_knee) if self.min_knee_angle is not None else avg_knee
@@ -231,7 +197,7 @@ class SquatAnalyzer:
                 result["phase"] = "fini"
                 
                 # Squat valide si pas de défaut
-                if not self.depth_insuffisante and not self.fault_downward and not self.pied_en_avant:
+                if not self.depth_insuffisante and not self.fault_downward:
                     result["verdict"] = "VALIDE"
                     result["message"] = "Squat VALIDE ✓"
                 else:
@@ -270,14 +236,6 @@ class SquatAnalyzer:
                 "frame_defaut": self.frame_defaut
             }
         
-        if self.pied_en_avant:
-            return {
-                "verdict": "REFUSE",
-                "defaut": "PIED_EN_AVANT",
-                "message": "Le squat est REFUSÉ: Les pieds ont bougé",
-                "frame_defaut": self.frame_defaut
-            }
-        
         return {
             "verdict": "VALIDE",
             "defaut": None,
@@ -290,11 +248,307 @@ class SquatAnalyzer:
         self.movement_active = False
         self.bottom_reached = False
         self.fault_downward = False
-        self.pied_en_avant = False
         self.depth_insuffisante = False
         self.min_knee_angle = None
         self.min_depth_score = 0.0
         self.prev_avg_knee = None
-        self.positions_pieds_init = None
         self.frame_defaut = -1
         self.defaut_type = None
+
+
+class SquatAnalyzerOffline:
+    """
+    Analyseur OFFLINE robuste pour le squat.
+    Basé sur l'analyse COMPLÈTE de la vidéo après lecture.
+    
+    Étapes:
+    1. Lissage des keypoints (Savitzky-Golay)
+    2. Détermination du "bottom" (point de plus grande flexion)
+    3. Détection des phases de manière robuste
+    4. Détection des 3 défauts avec persistance
+    """
+    
+    def __init__(self, fps=30, view_id="center"):
+        self.fps = fps
+        self.view_id = view_id
+        
+        # Seuils (à ajuster selon les tests)
+        self.DEPTH_THRESHOLD = 1.0  # Hanche doit être >= genou en Y
+        self.BOUNCE_PERSIST_FRAMES = 5  # Nombre de frames pour confirmer un bounce
+        self.BOUNCE_AMPLITUDE_RATIO = 0.1  # 10% de l'amplitude totale
+        
+    def smooth_signal(self, signal, window_length=11, polyorder=3):
+        """Lisse un signal avec Savitzky-Golay."""
+        if len(signal) < window_length:
+            return np.array(signal)
+        # Assurer window_length est impair
+        if window_length % 2 == 0:
+            window_length += 1
+        try:
+            return savgol_filter(signal, window_length, polyorder)
+        except:
+            return np.array(signal)
+    
+    def extract_signal_from_keypoints(self, keypoints_series, joint_indices):
+        """
+        Extrait un signal (ex: positions Y de la hanche) à partir des keypoints.
+        
+        Args:
+            keypoints_series: list of frames, each frame is list of 17 keypoints (x,y)
+            joint_indices: list of indices (ex: [11, 12] pour les 2 hanches)
+        
+        Returns:
+            np.array of values (ex: Y positions moyennes)
+        """
+        signal = []
+        for frame_keypoints in keypoints_series:
+            if len(frame_keypoints) < 17:
+                signal.append(np.nan)
+                continue
+            
+            values = []
+            for idx in joint_indices:
+                if idx < len(frame_keypoints) and frame_keypoints[idx] is not None:
+                    values.append(frame_keypoints[idx][1])  # Y coordinate
+            
+            if values:
+                signal.append(np.nanmean(values))
+            else:
+                signal.append(np.nan)
+        
+        return np.array(signal, dtype=float)
+    
+    def find_bottom_frame(self, keypoints_series):
+        """
+        Trouve le frame du "bottom" du squat (flexion max).
+        
+        Logique:
+        - Calculer la position Y moyenne des hanches
+        - Lisser le signal
+        - Trouver le max de Y (plus bas) après un certain point
+        - Retourner l'index du frame
+        """
+        hanche_y = self.extract_signal_from_keypoints(keypoints_series, [11, 12])
+        
+        # Interpoler les NaN
+        mask = ~np.isnan(hanche_y)
+        if not np.any(mask):
+            return len(keypoints_series) // 2  # Fallback au milieu
+        
+        hanche_y_interp = hanche_y.copy()
+        indices = np.arange(len(hanche_y))
+        hanche_y_interp[~mask] = np.interp(indices[~mask], indices[mask], hanche_y[mask])
+        
+        # Lisser
+        hanche_y_smooth = self.smooth_signal(hanche_y_interp, window_length=11, polyorder=3)
+        
+        # Trouver le bottom (max Y = position la plus basse)
+        # Éviter les premiers et derniers frames (bruit)
+        start_idx = max(1, len(hanche_y_smooth) // 4)
+        end_idx = min(len(hanche_y_smooth) - 1, 3 * len(hanche_y_smooth) // 4)
+        
+        bottom_idx = start_idx + np.argmax(hanche_y_smooth[start_idx:end_idx])
+        
+        return int(bottom_idx), hanche_y_smooth
+    
+    def detect_phases(self, keypoints_series):
+        """
+        Détecte les phases de mouvement (descente/remontée).
+        
+        Retourne:
+            (phase_labels, bottom_frame_idx)
+            phase_labels: array of "descente", "remontee" ou "unknown"
+        """
+        bottom_idx, hanche_y_smooth = self.find_bottom_frame(keypoints_series)
+        
+        phase_labels = []
+        for i in range(len(keypoints_series)):
+            if i <= bottom_idx:
+                phase_labels.append("descente")
+            else:
+                phase_labels.append("remontee")
+        
+        return np.array(phase_labels), bottom_idx
+    
+    def check_depth(self, keypoints_series, bottom_idx, tolerance=10):
+        """
+        Vérifie si la profondeur est suffisante au bottom.
+        
+        Critère IPF: hanche doit être au-dessous du genou (hip_y >= knee_y)
+        
+        Returns:
+            (is_valid, confidence_score)
+        """
+        window_start = max(0, bottom_idx - tolerance)
+        window_end = min(len(keypoints_series), bottom_idx + tolerance + 1)
+        
+        valid_count = 0
+        total_count = 0
+        
+        for frame_idx in range(window_start, window_end):
+            kpts = keypoints_series[frame_idx]
+            if len(kpts) < 17:
+                continue
+            
+            total_count += 1
+            
+            hanche_left_y = kpts[11][1] if kpts[11] is not None else None
+            hanche_right_y = kpts[12][1] if kpts[12] is not None else None
+            genou_left_y = kpts[13][1] if kpts[13] is not None else None
+            genou_right_y = kpts[14][1] if kpts[14] is not None else None
+            
+            # Vérifier chaque côté
+            if hanche_left_y is not None and genou_left_y is not None:
+                if hanche_left_y >= genou_left_y:
+                    valid_count += 1
+            
+            if hanche_right_y is not None and genou_right_y is not None:
+                if hanche_right_y >= genou_right_y:
+                    valid_count += 1
+        
+        if total_count == 0:
+            return False, 0.0
+        
+        confidence = valid_count / (2 * total_count)  # Max 2 per frame (left+right)
+        is_valid = confidence >= self.DEPTH_THRESHOLD
+        
+        return is_valid, confidence
+    
+    def check_bounce(self, keypoints_series, phase_labels, bottom_idx):
+        """
+        Détecte une redescente pendant la remontée (bounce).
+        
+        Logique:
+        - Après le bottom, la hanche Y devrait diminuer (remonter)
+        - Si Y augmente (redescend) pendant N frames consecutives avec amplitude >= seuil
+        - C'est un bounce/redescente
+        
+        Returns:
+            (has_bounce, bounce_frame_idx, bounce_amplitude)
+        """
+        hanche_y = self.extract_signal_from_keypoints(keypoints_series, [11, 12])
+        
+        # Interpoler NaN
+        mask = ~np.isnan(hanche_y)
+        if not np.any(mask):
+            return False, -1, 0.0
+        
+        hanche_y_interp = hanche_y.copy()
+        indices = np.arange(len(hanche_y))
+        hanche_y_interp[~mask] = np.interp(indices[~mask], indices[mask], hanche_y[mask])
+        
+        # Lisser
+        hanche_y_smooth = self.smooth_signal(hanche_y_interp, window_length=11, polyorder=3)
+        
+        # Amplitude totale du mouvement
+        amplitude_total = np.nanmax(hanche_y_smooth) - np.nanmin(hanche_y_smooth)
+        bounce_amplitude_threshold = amplitude_total * self.BOUNCE_AMPLITUDE_RATIO
+        
+        # Chercher redescente après le bottom
+        for i in range(bottom_idx + 5, len(hanche_y_smooth) - self.BOUNCE_PERSIST_FRAMES):
+            # Vérifier si les N frames suivantes sont en redescente
+            redescente_count = 0
+            max_bounce_amplitude = 0
+            
+            for j in range(i, min(i + self.BOUNCE_PERSIST_FRAMES, len(hanche_y_smooth) - 1)):
+                dy = hanche_y_smooth[j + 1] - hanche_y_smooth[j]
+                if dy > 0:  # Y augmente = redescend
+                    redescente_count += 1
+                    max_bounce_amplitude = max(max_bounce_amplitude, abs(dy))
+            
+            if redescente_count >= self.BOUNCE_PERSIST_FRAMES - 1 and max_bounce_amplitude >= bounce_amplitude_threshold:
+                return True, i, max_bounce_amplitude
+        
+        return False, -1, 0.0
+    
+
+    
+    def analyze(self, keypoints_series):
+        """
+        Analyse complète de la séquence de keypoints.
+        
+        Args:
+            keypoints_series: list of frames, each frame is list of 17 keypoints
+        
+        Returns:
+            {
+                "verdict": "VALIDE" ou "REFUSE",
+                "defaut": None ou "DEPTH_INSUFFISANTE" ou "REDESCENTE_APRES_MONTEE",
+                "message": str,
+                "frame_defaut": int,
+                "bottom_frame": int,
+                "details": {...}
+            }
+        """
+        if len(keypoints_series) < 10:
+            return {
+                "verdict": "INVALIDE",
+                "defaut": "INSUFFICIENT_FRAMES",
+                "message": "Trop peu de frames pour analyser",
+                "frame_defaut": -1,
+                "bottom_frame": -1,
+                "details": {}
+            }
+        
+        # Étape 1: Déterminer le bottom
+        bottom_idx, _ = self.find_bottom_frame(keypoints_series)
+        
+        # Étape 2: Déterminer les phases
+        phase_labels, _ = self.detect_phases(keypoints_series)
+        
+        # Étape 3: Vérifier la profondeur
+        depth_valid, depth_confidence = self.check_depth(keypoints_series, bottom_idx)
+        
+        # Étape 4: Vérifier le bounce
+        has_bounce, bounce_frame, bounce_amplitude = self.check_bounce(keypoints_series, phase_labels, bottom_idx)
+        
+        # Déterminer le verdict
+        result = {
+            "bottom_frame": bottom_idx,
+            "phase_labels": phase_labels,
+            "details": {
+                "depth_valid": depth_valid,
+                "depth_confidence": float(depth_confidence),
+                "has_bounce": has_bounce,
+                "bounce_frame": bounce_frame,
+                "bounce_amplitude": float(bounce_amplitude),
+                "view_id": self.view_id
+            }
+        }
+        
+        # Appliquer les règles IPF (ordre de priorité)
+        if not depth_valid:
+            result["verdict"] = "REFUSE"
+            result["defaut"] = "DEPTH_INSUFFISANTE"
+            result["message"] = f"DEPTH_INSUFFISANTE: Hanche n'est pas assez basse au bottom (confidence: {depth_confidence:.2f}). La hanche doit être au-dessous du genou."
+            result["frame_defaut"] = bottom_idx
+        
+        elif has_bounce:
+            result["verdict"] = "REFUSE"
+            result["defaut"] = "REDESCENTE_APRES_MONTEE"
+            result["message"] = f"REDESCENTE_APRES_MONTEE: L'athlète a redescendu pendant la remontée au frame {bounce_frame} (amplitude: {bounce_amplitude:.1f}px)"
+            result["frame_defaut"] = bounce_frame
+        
+        else:
+            result["verdict"] = "VALIDE"
+            result["defaut"] = None
+            result["message"] = "Squat VALIDE ✓"
+            result["frame_defaut"] = -1
+        
+        return result
+
+
+def analyze_sequence(keypoints_series, fps=30, view_id="center"):
+    """
+    Fonction wrapper pour analyser une séquence complète de keypoints.
+    
+    Args:
+        keypoints_series: list of frames, each frame is list of 17 keypoints (x, y)
+        fps: frames per second (pour la synchronisation multi-vue si besoin)
+        view_id: identifiant de la vue ("center", "left", "right")
+    
+    Returns:
+        dict avec le verdict et détails de l'analyse
+    """
+    analyzer = SquatAnalyzerOffline(fps=fps, view_id=view_id)
+    return analyzer.analyze(keypoints_series)

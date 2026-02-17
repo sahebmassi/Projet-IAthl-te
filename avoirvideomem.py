@@ -80,16 +80,22 @@ def initialisationDataVideo(videoPath: str, id: int):
             angle = 0
 
     capture = cv2.VideoCapture(videoPath)
-    capture.set(cv2.CAP_PROP_FRAME_WIDTH, LARGEUR)
-    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HAUTEUR)
+    # NE PAS forcer la taille pour fichiers vidéo (webcam ok)
+    if isinstance(videoPath, int):
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, LARGEUR)
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, HAUTEUR)
     capture.set(cv2.CAP_PROP_ORIENTATION_AUTO, 1)
 
+    # Récupérer les dimensions natives de la vidéo
+    W = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+    H = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    
     winName = "Pose Detection" + str(id)
     cv2.namedWindow(winName, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(winName, LARGEUR, HAUTEUR)
+    cv2.resizeWindow(winName, W, H)
     cv2.setWindowProperty(winName, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(winName, mouseCallBack)
-    return capture, angle, winName
+    return capture, angle, winName, W, H
 
 
 def captureVideo(mediaPipe: bool = True,
@@ -109,17 +115,17 @@ def captureVideo(mediaPipe: bool = True,
     print(f"Lancement du logiciel avec mediaPipe : {mediaPipe}, yolo : {yolo}, et comme path pour la vidéo : {videoPath}")
 
     modelMP, modelYolo = None, yolo
-    capture, angleVideo, winName = initialisationDataVideo(videoPath, id)
+    capture, angleVideo, winName, W, H = initialisationDataVideo(videoPath, id)
     if not capture.isOpened():
         print(f"[ERREUR Process {id}] Échec de l'ouverture de la capture pour: {videoPath}")
         return
 
     if enregistrerVideoAvant is not None:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        outAvant = cv2.VideoWriter(enregistrerVideoAvant, fourcc, 20.0, (LARGEUR, HAUTEUR))
+        outAvant = cv2.VideoWriter(enregistrerVideoAvant, fourcc, 20.0, (W, H))
     if enregistrementVideoApres is not None:
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        outApres = cv2.VideoWriter(enregistrementVideoApres, fourcc, 20.0, (LARGEUR, HAUTEUR))
+        outApres = cv2.VideoWriter(enregistrementVideoApres, fourcc, 20.0, (W, H))
 
     touteCoordonnees = []
 
@@ -184,17 +190,15 @@ def captureVideo(mediaPipe: bool = True,
         # Traitement métier (dessins / règles)
         mouvementReussi = traitementVideo(touteCoordonnees, image, winName)
 
-        # Afficher image
-        image_resized = cv2.resize(image, (LARGEUR, HAUTEUR), interpolation=cv2.INTER_AREA)
-        cv2.imshow(winName, image_resized)
+        # Afficher image à résolution native (pas de resize)
+        cv2.imshow(winName, image)
 
         if enregistrementJson is not None:
             exportationCSV(touteCoordonnees, enregistrementJson, mouvement)
 
         fin = time.time()
-        image_out = cv2.resize(image, (LARGEUR, HAUTEUR), interpolation=cv2.INTER_AREA)
         if enregistrementVideoApres is not None:
-            outApres.write(image_out)
+            outApres.write(image)
 
         # =============================
         # Gestion clavier + Fermeture
