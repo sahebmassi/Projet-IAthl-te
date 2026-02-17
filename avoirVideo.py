@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 from enumIndice import *
 from traitementVideo import *
 from trouverArticulationYolo import *
@@ -476,6 +477,38 @@ def captureVideo(mediaPipe: bool = True,
         tempsTotalFrame += fin - debut
         nbTotalFrame += 1
 
+    # ===== ANALYSE OFFLINE DU SQUAT À LA FIN DE LA VIDÉO =====
+    # Si c'est un squat, faire l'analyse complète à la fin
+    if traitementVideo == affichageOrienteSquat and mouvement == IndiceMouvement.SQUAT.value:
+        print("\n" + "="*60)
+        print("ANALYSE OFFLINE DU SQUAT")
+        print("="*60)
+        
+        # Analyser la séquence collectée
+        from traitementVideo import analyze_squat_offline, display_squat_analysis
+        squat_result = analyze_squat_offline(fps=fps)
+        
+        print(f"Verdict: {squat_result.get('verdict', 'INCONNU')}")
+        print(f"Défaut: {squat_result.get('defaut', 'Aucun')}")
+        print(f"Message: {squat_result.get('message', '')}")
+        print("="*60 + "\n")
+        
+        # Créer une image finale avec les résultats (affichage à côté de la vidéo)
+        try:
+            H_img = image.shape[0]
+            panel_w = max(400, int(H_img * 0.5))
+            panel = np.ones((H_img, panel_w, 3), dtype=np.uint8) * 255
+            display_squat_analysis(panel, squat_result, x_offset=10, y_offset=30)
+            # Combiner côte-à-côte
+            combined = np.hstack([cv2.resize(image, (image.shape[1], H_img)), panel])
+            cv2.namedWindow("Analyse Finale", cv2.WINDOW_NORMAL)
+            cv2.imshow("Analyse Finale", combined)
+            print("Affichage de l'analyse finale. Appuyez sur une touche pour fermer.")
+            cv2.waitKey(0)
+            cv2.destroyWindow("Analyse Finale")
+        except Exception as e:
+            print(f"[WARN] Impossible d'afficher l'analyse finale: {e}")
+    
     capture.release()
     cv2.destroyWindow(winName)
     if mediaPipe and modelMP is not None:

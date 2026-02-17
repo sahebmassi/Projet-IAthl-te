@@ -8,7 +8,7 @@ Détecte 3 défauts principaux:
 
 import math
 import numpy as np
-from scipy.signal import savgol_filter
+from scipy.signal import savgol_filter, find_peaks
 from enumIndice import IndiceYolo
 
 
@@ -419,8 +419,8 @@ class SquatAnalyzerOffline:
         Détecte une redescente pendant la remontée (bounce).
         
         Logique:
-        - Après le bottom, la hanche Y devrait diminuer (remonter)
-        - Si Y augmente (redescend) pendant N frames consecutives avec amplitude >= seuil
+        - Après le bottom, la hanche Y devrait DIMINUER CONSTAMMENT (remonter)
+        - Si Y augmente (redescend) pendant N frames consécutives
         - C'est un bounce/redescente
         
         Returns:
@@ -437,26 +437,31 @@ class SquatAnalyzerOffline:
         indices = np.arange(len(hanche_y))
         hanche_y_interp[~mask] = np.interp(indices[~mask], indices[mask], hanche_y[mask])
         
-        # Lisser
-        hanche_y_smooth = self.smooth_signal(hanche_y_interp, window_length=11, polyorder=3)
+        # Lisser légèrement (moins agressif pour détecter les petits bounces)
+        hanche_y_smooth = self.smooth_signal(hanche_y_interp, window_length=7, polyorder=2)
         
         # Amplitude totale du mouvement
         amplitude_total = np.nanmax(hanche_y_smooth) - np.nanmin(hanche_y_smooth)
-        bounce_amplitude_threshold = amplitude_total * self.BOUNCE_AMPLITUDE_RATIO
+        # Seuil plus bas pour détecter même des petits bounces
+        bounce_amplitude_threshold = amplitude_total * 0.05  # 5% au lieu de 10%
         
         # Chercher redescente après le bottom
-        for i in range(bottom_idx + 5, len(hanche_y_smooth) - self.BOUNCE_PERSIST_FRAMES):
-            # Vérifier si les N frames suivantes sont en redescente
-            redescente_count = 0
+        # La remontée commence au bottom et finit à la fin
+        upward_direction = None  # Mémoriser la direction générale
+        
+        for i in range(bottom_idx + 3, len(hanche_y_smooth) - self.BOUNCE_PERSIST_FRAMES):
+            # Compter les frames où Y AUGMENTE (mauvais sens = redescente)
+            redescente_frames = 0
             max_bounce_amplitude = 0
             
             for j in range(i, min(i + self.BOUNCE_PERSIST_FRAMES, len(hanche_y_smooth) - 1)):
                 dy = hanche_y_smooth[j + 1] - hanche_y_smooth[j]
-                if dy > 0:  # Y augmente = redescend
-                    redescente_count += 1
-                    max_bounce_amplitude = max(max_bounce_amplitude, abs(dy))
+                if dy > 0.5:  # Tolérance petit bruit: Y augmente = redescend (mauvais!)
+                    redescente_frames += 1
+                    max_bounce_amplitude = max(max_bounce_amplitude, dy)
             
-            if redescente_count >= self.BOUNCE_PERSIST_FRAMES - 1 and max_bounce_amplitude >= bounce_amplitude_threshold:
+            # Si 3+ frames consécutives en redescente ou amplitude > seuil
+            if redescente_frames >= 3 or max_bounce_amplitude >= bounce_amplitude_threshold:
                 return True, i, max_bounce_amplitude
         
         return False, -1, 0.0
@@ -489,52 +494,97 @@ class SquatAnalyzerOffline:
                 "bottom_frame": -1,
                 "details": {}
             }
-        
-        # Étape 1: Déterminer le bottom
-        bottom_idx, _ = self.find_bottom_frame(keypoints_series)
-        
-        # Étape 2: Déterminer les phases
-        phase_labels, _ = self.detect_phases(keypoints_series)
-        
-        # Étape 3: Vérifier la profondeur
-        depth_valid, depth_confidence = self.check_depth(keypoints_series, bottom_idx)
-        
-        # Étape 4: Vérifier le bounce
-        has_bounce, bounce_frame, bounce_amplitude = self.check_bounce(keypoints_series, phase_labels, bottom_idx)
-        
-        # Déterminer le verdict
-        result = {
-            "bottom_frame": bottom_idx,
-            "phase_labels": phase_labels,
-            "details": {
+
+        # Construire le signal de hanche lissé
+        hanche_y = self.extract_signal_from_keypoints(keypoints_series, [11, 12])
+        mask = ~np.isnan(hanche_y)
+        if not np.any(mask):
+            return {
+                "verdict": "INVALIDE",
+                "defaut": "NO_KEYPOINTS",
+                "message": "Keypoints non disponibles",
+                "frame_defaut": -1,
+                "bottom_frame": -1,
+                "details": {}
+            }
+        hanche_y_interp = hanche_y.copy()
+        indices = np.arange(len(hanche_y))
+        hanche_y_interp[~mask] = np.interp(indices[~mask], indices[mask], hanche_y[mask])
+        hanche_y_smooth = self.smooth_signal(hanche_y_interp, window_length=11, polyorder=3)
+
+        # Détecter tous les bottoms (pics locaux de hanche_y)
+        amplitude_total = np.nanmax(hanche_y_smooth) - np.nanmin(hanche_y_smooth)
+        min_distance = max(1, int(0.4 * self.fps))
+        prominence = max(1.0, amplitude_total * 0.12)
+        peaks, props = find_peaks(hanche_y_smooth, distance=min_distance, prominence=prominence)
+
+        if len(peaks) == 0:
+            # Fallback à un seul bottom robuste
+            bottom_idx, _ = self.find_bottom_frame(keypoints_series)
+            peaks = np.array([bottom_idx])
+
+        reps = []
+        bottoms = list(peaks)
+
+        # Déterminer rep ranges
+        for ri, b in enumerate(bottoms):
+            prev_end = 0 if ri == 0 else bottoms[ri - 1] + 1
+            next_start = (bottoms[ri + 1] if ri + 1 < len(bottoms) else len(keypoints_series) - 1)
+
+            descent_start = prev_end
+            descent_end = b
+            ascent_start = b
+            ascent_end = next_start
+
+            # Vérifier profondeur dans la fenêtre autour du bottom (descente)
+            depth_valid, depth_confidence = self.check_depth(keypoints_series, b, tolerance=min(10, int((descent_end - descent_start) / 3) + 1))
+
+            # Vérifier bounce dans la fenêtre d'ascent
+            ascent_slice = keypoints_series[ascent_start:ascent_end + 1]
+            has_bounce, local_bounce_frame, bounce_amplitude = self.check_bounce(ascent_slice, None, 0)
+            global_bounce_frame = ascent_start + local_bounce_frame if has_bounce and local_bounce_frame >= 0 else -1
+
+            defects = []
+            if not depth_valid:
+                defects.append("DEPTH_INSUFFISANTE")
+            if has_bounce:
+                defects.append("REDESCENTE_APRES_MONTEE")
+
+            reps.append({
+                "rep_index": ri,
+                "bottom_frame": int(b),
+                "descent_range": (int(descent_start), int(descent_end)),
+                "ascent_range": (int(ascent_start), int(ascent_end)),
                 "depth_valid": depth_valid,
                 "depth_confidence": float(depth_confidence),
-                "has_bounce": has_bounce,
-                "bounce_frame": bounce_frame,
+                "has_bounce": bool(has_bounce),
+                "bounce_frame": int(global_bounce_frame),
                 "bounce_amplitude": float(bounce_amplitude),
-                "view_id": self.view_id
-            }
+                "defects": defects
+            })
+
+        # Agréger verdicts
+        all_defects = [d for rep in reps for d in rep["defects"]]
+        result = {
+            "bottom_frames": bottoms,
+            "reps": reps,
+            "details": {"view_id": self.view_id}
         }
-        
-        # Appliquer les règles IPF (ordre de priorité)
-        if not depth_valid:
+
+        if len(all_defects) > 0:
             result["verdict"] = "REFUSE"
-            result["defaut"] = "DEPTH_INSUFFISANTE"
-            result["message"] = f"DEPTH_INSUFFISANTE: Hanche n'est pas assez basse au bottom (confidence: {depth_confidence:.2f}). La hanche doit être au-dessous du genou."
-            result["frame_defaut"] = bottom_idx
-        
-        elif has_bounce:
-            result["verdict"] = "REFUSE"
-            result["defaut"] = "REDESCENTE_APRES_MONTEE"
-            result["message"] = f"REDESCENTE_APRES_MONTEE: L'athlète a redescendu pendant la remontée au frame {bounce_frame} (amplitude: {bounce_amplitude:.1f}px)"
-            result["frame_defaut"] = bounce_frame
-        
+            # Choisir le premier défaut le plus critique à rapporter
+            result["defaut"] = all_defects[0]
+            result["message"] = f"Défauts détectés: {', '.join(sorted(set(all_defects)))}"
+            # frame_defaut: first occurrence
+            first_rep_with_defect = next((rep for rep in reps if rep["defects"]), None)
+            result["frame_defaut"] = first_rep_with_defect["bottom_frame"] if first_rep_with_defect is not None else -1
         else:
             result["verdict"] = "VALIDE"
             result["defaut"] = None
-            result["message"] = "Squat VALIDE ✓"
+            result["message"] = "Tous les reps VALIDE ✓"
             result["frame_defaut"] = -1
-        
+
         return result
 
 

@@ -5,15 +5,11 @@ from utils import *
 from squatDataRetrieve import *
 from regleSouleveDeTerre import souleverDeTerreValue
 from regleDeveloppeCouche import developpeCoucheCoord
-from squatRules import SquatAnalyzer
+from squatRules import SquatAnalyzer, analyze_sequence
 
-# Analyseur global pour le squat
-_squat_analyzer = None
-_squat_frame_counter = 0
-# Variables pour garder le défaut affiché plusieurs frames
-_last_defaut = None
-_defaut_display_frames = 0
-_DEFAUT_DISPLAY_DURATION = 120  # Garder le défaut affiché pendant 120 frames
+# Pour le mode OFFLINE du squat
+_squat_keypoints_collection = []  # Collecte des keypoints pendant la vidéo
+_squat_analysis_result = None  # Résultat d'analyse à la fin
 
 def rien(toutesCoordonnees: list,image: np.ndarray, winName : str) -> None:
     """Cette fonction permet de ne pas avoir de traitement des donnes pour tester si juste la recherche d'articulations fonctionne
@@ -284,16 +280,15 @@ def draw_skeleton(image: np.ndarray, keypoints: list) -> None:
 
 
 def affichageOrienteSquat(toutesCoordonnees : list, image : np.ndarray, winName : str)-> None :
-    """Affiche les informations utile pour le squat avec détection des défauts
+    """
+    MODE OFFLINE: Collecte les keypoints durant la vidéo (pas d'analyse en temps réel)
+    L'analyse se fera à la fin via analyze_sequence()
+    
     Args:
         toutesCoordonnees (list): les coordonnées depuis le début du mouvement
-        image (np.ndarray): l'image actuelle à modifier"""
-    global _squat_analyzer, _squat_frame_counter, _last_defaut, _defaut_display_frames
-    
-    # Initialiser l'analyseur au premier frame
-    if _squat_analyzer is None:
-        _squat_analyzer = SquatAnalyzer()
-        _squat_frame_counter = 0
+        image (np.ndarray): l'image actuelle à modifier
+    """
+    global _squat_keypoints_collection
     
     listeArt, [anglesG, angleD] = traitementSquat(toutesCoordonnees)
     
@@ -304,77 +299,101 @@ def affichageOrienteSquat(toutesCoordonnees : list, image : np.ndarray, winName 
         full_keypoints = articulations[0]
         draw_skeleton(image, full_keypoints)
         
-        # Analyser le frame pour détecter les défauts
-        analysis_result = _squat_analyzer.analyze_frame(full_keypoints, _squat_frame_counter)
+        # COLLECTER les keypoints (pas d'analyse encore)
+        _squat_keypoints_collection.append(full_keypoints)
         
-        # Afficher les informations d'analyse
+        # Afficher les informations de base (angle des genoux)
         y_offset = 30
-        
-        # Afficher l'angle des genoux
         text_angle = f"Angle: G={anglesG:.1f}° D={angleD:.1f}°"
         cv2.putText(image, text_angle, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
         y_offset += 30
         
-        # Afficher la phase du mouvement
-        text_phase = f"Phase: {analysis_result['phase']}"
-        cv2.putText(image, text_phase, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 165, 0), 2)
-        y_offset += 30
-        
-        # Si défaut détecté, sauvegarder et afficher
-        if analysis_result["verdict"] == "REFUSE":
-            _last_defaut = analysis_result
-            _defaut_display_frames = _DEFAUT_DISPLAY_DURATION
-        
-        # Afficher le défaut s'il y en a un en mémoire
-        if _last_defaut is not None and _defaut_display_frames > 0:
-            color = (0, 0, 255)  # Rouge
-            text_verdict = f"DEFAUT: {_last_defaut['defaut']}"
-            cv2.putText(image, text_verdict, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 3)
-            y_offset += 35
-            
-            text_reason = _last_defaut["message"]
-            cv2.putText(image, text_reason, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
-            y_offset += 30
-            
-            text_frame = f"Frame du defaut: {_last_defaut['instant_defaut']}"
-            cv2.putText(image, text_frame, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-            y_offset += 30
-            
-            # Afficher le temps restant pour le défaut
-            seconds_left = _defaut_display_frames / 30  # Supposant 30 FPS
-            text_timer = f"Defaut visible pendant {seconds_left:.1f}s"
-            cv2.putText(image, text_timer, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 100, 255), 2)
-            
-            _defaut_display_frames -= 1
-        else:
-            if _defaut_display_frames <= 0:
-                _last_defaut = None
-            text_verdict = "Statut: OK"
-            cv2.putText(image, text_verdict, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        
-        _squat_frame_counter += 1
+        # Afficher le nombre de frames collectés
+        text_frames = f"Frames collectés: {len(_squat_keypoints_collection)}"
+        cv2.putText(image, text_frames, (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 165, 0), 2)
     
     Box(toutesCoordonnees[-1][1], image)
     cv2.imshow(winName, image)
 
 
-def get_squat_verdict():
-    """Retourne le verdict final du squat analysé"""
-    global _squat_analyzer
-    if _squat_analyzer is None:
-        return {
-            "verdict": "INCONNU",
+def analyze_squat_offline(fps=30):
+    """
+    Analyse complète du squat à la fin de la vidéo (OFFLINE).
+    Utilise la classe SquatAnalyzerOffline pour une meilleure détection.
+    
+    Returns:
+        dict avec verdict, défauts, etc.
+    """
+    global _squat_keypoints_collection, _squat_analysis_result
+    
+    if len(_squat_keypoints_collection) < 10:
+        _squat_analysis_result = {
+            "verdict": "INVALIDE",
             "defaut": None,
-            "message": "Aucun squat analysé"
+            "message": "Trop peu de frames collectés",
+            "details": {}
         }
-    return _squat_analyzer.get_result()
+        return _squat_analysis_result
+    
+    # Analyse OFFLINE robuste
+    _squat_analysis_result = analyze_sequence(_squat_keypoints_collection, fps=fps, view_id="center")
+    return _squat_analysis_result
 
 
-def reset_squat_analyzer():
-    """Réinitialise l'analyseur pour une nouvelle analyse"""
-    global _squat_analyzer, _squat_frame_counter
-    _squat_analyzer = None
-    _squat_frame_counter = 0
+def display_squat_analysis(image : np.ndarray, analysis_result : dict, x_offset=10, y_offset=30):
+    """
+    Affiche l'analyse du squat sur l'image (à côté, pas sur le squat).
+    
+    Args:
+        image: image où afficher
+        analysis_result: résultat de analyze_sequence()
+        x_offset, y_offset: position du texte
+    """
+    if analysis_result is None:
+        return
+    
+    # Couleur basée sur le verdict
+    color = (0, 0, 255) if analysis_result["verdict"] == "REFUSE" else (0, 255, 0)
+    
+    # Titre
+    text_verdict = f"VERDICT: {analysis_result['verdict']}"
+    cv2.putText(image, text_verdict, (x_offset, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
+    y_offset += 40
+    
+    # Défaut
+    if analysis_result["defaut"]:
+        text_defaut = f"Défaut: {analysis_result['defaut']}"
+        cv2.putText(image, text_defaut, (x_offset, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        y_offset += 35
+    
+    # Message
+    msg = analysis_result.get("message", "")
+    if msg:
+        # Découper le message s'il est trop long
+        lines = [msg[i:i+50] for i in range(0, len(msg), 50)]
+        for line in lines:
+            cv2.putText(image, line, (x_offset, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+            y_offset += 25
+    
+    # Détails
+    details = analysis_result.get("details", {})
+    if details:
+        y_offset += 10
+        text_bottom = f"Bottom frame: {analysis_result.get('bottom_frame', -1)}"
+        cv2.putText(image, text_bottom, (x_offset, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 0), 2)
+        y_offset += 25
+        
+        if "depth_confidence" in details:
+            text_depth = f"Depth confidence: {details['depth_confidence']:.2f}"
+            cv2.putText(image, text_depth, (x_offset, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 0), 2)
+            y_offset += 25
+
+
+def reset_squat_analysis():
+    """Réinitialise la collection pour un nouvel essai"""
+    global _squat_keypoints_collection, _squat_analysis_result
+    _squat_keypoints_collection = []
+    _squat_analysis_result = None
 
 
 def tracerTrajectoire(image : np.ndarray, trajectoire : list):
