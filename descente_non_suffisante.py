@@ -15,8 +15,7 @@ from ultralytics import YOLO
 # Durée minimale d'une descente valide (persistance)
 MIN_DESC_FRAMES = 6  # en frames (sera adapté via FPS)
 
-# Seuil profondeur minimale de la descente, en ratio de la largeur de hanches
-MIN_DESCENT_RATIO_OF_HIPWIDTH = 0.10  # 10% hipWidth
+# (Amplitude retirée — on n'utilise plus ce critère)
 
 # EPS : seuil "vitesse" par frame pour compter un mouvement vers le bas, en % hipWidth/frame
 EPS_VEL_RATIO_OF_HIPWIDTH = 0.008
@@ -27,6 +26,9 @@ SMOOTH_WIN = 5
 # Détection de phase : nb de frames consécutives pour valider descente/remontée
 N_DOWN_FRAMES = 4
 N_UP_FRAMES = 4
+
+# Critère alternatif: angle genou en dessous de ce seuil indique profondeur
+DEPTH_KNEE_ANGLE_THRESH = 90.0  # deg (angle moyen genou < 90 => profond)
 
 
 # ============================================================
@@ -202,7 +204,7 @@ def main():
     TOP_HOLD_FRAMES = max(2, int(round(TOP_HOLD_SEC * fps_video)))
     MIN_ASCENT_BEFORE_END_FRAMES = max(0, int(round(MIN_ASCENT_BEFORE_END_SEC * fps_video)))
 
-    print(f"[INFO] Detection params: min_desc_frames={MIN_DESC_FRAMES_FR} | min_descent_ratio={MIN_DESCENT_RATIO_OF_HIPWIDTH*100:.1f}% hipWidth")
+    print(f"[INFO] Detection params: min_desc_frames={MIN_DESC_FRAMES_FR} | depth angle thresh={DEPTH_KNEE_ANGLE_THRESH:.1f}deg")
 
     win = "Squat - descente non suffisante"
     cv2.namedWindow(win, cv2.WINDOW_NORMAL)
@@ -212,6 +214,14 @@ def main():
     hipw_buf = deque(maxlen=SMOOTH_WIN)
     knee_buf = deque(maxlen=SMOOTH_WIN)
     baseline_buf = deque(maxlen=int(max(10, round(1.0 * fps_video))))
+
+    # log events shown next to the video (newest first)
+    events = deque(maxlen=12)
+
+    def append_event(msg: str):
+        # prepend timestamp and push to left
+        t = frame_idx / fps_video if frame_idx >= 0 else 0.0
+        events.appendleft(f"{frame_idx:06d} {t:6.2f}s | {msg}")
 
     prev_smooth_y = None
 
@@ -232,6 +242,9 @@ def main():
 
     descent_insufficient = False
     descent_amp_px = None
+    min_knee_angle = None
+    bottom_knee_angle = None
+    hip_below_knees = None
 
     lock_streak = 0
     top_streak = 0
@@ -297,7 +310,9 @@ def main():
 
                             max_smooth_y = smooth_y
                             max_smooth_y_frame = frame_idx
-                            print(f"[INFO] Descente détectée à frame={start_desc_frame} (t={start_desc_frame/fps_video:.2f}s)")
+                            msg = f"Descente détectée à frame={start_desc_frame} (t={start_desc_frame/fps_video:.2f}s)"
+                            print(f"[INFO] {msg}")
+                            append_event(msg)
 
                     elif state == "descending":
                         if max_smooth_y is None or smooth_y > max_smooth_y:
@@ -313,18 +328,40 @@ def main():
                                 bottom_info = ""
                                 if max_smooth_y_frame is not None:
                                     bottom_info = f" | bottom≈frame={max_smooth_y_frame} (t={max_smooth_y_frame/fps_video:.2f}s)"
-                                print(f"[OK] Début REMONTÉE à frame={start_up_frame} (t={start_up_frame/fps_video:.2f}s){bottom_info}")
-
-                                # Évaluer amplitude de la descente
+                                msg = f"Début REMONTÉE à frame={start_up_frame} (t={start_up_frame/fps_video:.2f}s){bottom_info}"
+                                print(f"[OK] {msg}")
+                                append_event(msg)
+                                # Évaluer critères alternatifs (hanche sous genou / angle genou)
                                 if baseline_top_y is not None and max_smooth_y is not None:
+                                    # store amplitude anyway for debugging, but not used for decision
                                     amp = max_smooth_y - baseline_top_y
                                     descent_amp_px = amp
-                                    if amp < (MIN_DESCENT_RATIO_OF_HIPWIDTH * hipw_med):
+
+                                    # 2) hanche sous genoux (y augmente vers le bas)
+                                    avg_knee_y = None
+                                    if kps is not None:
+                                        lkx, lky = kps[LEFT_KNEE]
+                                        rkx, rky = kps[RIGHT_KNEE]
+                                        if (lkx != 0 or lky != 0) and (rkx != 0 or rky != 0):
+                                            avg_knee_y = 0.5 * (lky + rky)
+
+                                    hip_below = False
+                                    if avg_knee_y is not None:
+                                        hip_below = max_smooth_y > avg_knee_y
+                                    hip_below_knees = hip_below
+
+                                    # 3) angle genou au bottom
+                                    bottom_knee_angle = smooth_knee
+                                    knee_angle_ok = bottom_knee_angle is not None and bottom_knee_angle < DEPTH_KNEE_ANGLE_THRESH
+
+                                    # DECISION: amplitude retirée — on juge profond si hanche sous genou OU angle genou < threshold
+                                    if not (hip_below or knee_angle_ok):
                                         descent_insufficient = True
-                                        print(
-                                            f"[FAULT] Descente non suffisante: amp={amp:.1f}px "
-                                            f"(< {MIN_DESCENT_RATIO_OF_HIPWIDTH*100:.1f}% hipWidth ~ {MIN_DESCENT_RATIO_OF_HIPWIDTH*hipw_med:.1f}px)"
-                                        )
+                                        append_event(f"FAULT: descente non suffisante (hipBelow={hip_below} kneeOk={knee_angle_ok} angle={bottom_knee_angle})")
+                                        print(f"[FAULT] Descente non suffisante (hipBelow={hip_below} kneeOk={knee_angle_ok} angle={bottom_knee_angle})")
+                                    else:
+                                        append_event(f"OK: descente suffisante (hipBelow={hip_below} kneeOk={knee_angle_ok} angle={bottom_knee_angle})")
+                                        print(f"[OK] Descente jugée suffisante: hip_below={hip_below} knee_angle_ok={knee_angle_ok} (angle={bottom_knee_angle})")
 
                                 # reset end tracking
                                 lock_streak = 0
@@ -372,10 +409,31 @@ def main():
                 if smooth_knee is not None:
                     cv2.putText(frame, f"knee angle ~ {smooth_knee:.1f} deg", (10, 150),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+                    # mettre à jour et afficher l'angle genou minimal observé
+                    if min_knee_angle is None or smooth_knee < min_knee_angle:
+                        min_knee_angle = smooth_knee
+                    if min_knee_angle is not None:
+                        cv2.putText(frame, f"min knee: {min_knee_angle:.1f}deg  thr: {LOCK_ANGLE_DEG:.1f}deg", (10, 175),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 50), 2)
+                    # afficher angle au bottom si disponible
+                    if bottom_knee_angle is not None:
+                        cv2.putText(frame, f"bottom_knee: {bottom_knee_angle:.1f}deg hipBelow:{hip_below_knees}", (10, 200),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 50), 2)
 
                 if descent_insufficient:
                     cv2.putText(frame, "FAULT: DESCENTE NON SUFFISANTE", (10, 190),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 3)
+
+                # --- Draw event log panel on the right ---
+                panel_w = int(W * 0.36)
+                panel_x = W - panel_w
+                cv2.rectangle(frame, (panel_x, 0), (W, H), (20, 20, 20), -1)
+                cv2.putText(frame, "LOG (newest)", (panel_x + 8, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+                # render events
+                line_h = 18
+                y0 = 40
+                for i, e in enumerate(list(events)[:int((H - y0) / line_h)]):
+                    cv2.putText(frame, e, (panel_x + 8, y0 + i * line_h), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (220, 220, 220), 1)
 
             cv2.putText(frame, "Space: pause | R: reset | Q/Esc: quit", (10, H - 20),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
@@ -408,6 +466,10 @@ def main():
 
             descent_insufficient = False
             descent_amp_px = None
+            min_knee_angle = None
+            bottom_knee_angle = None
+            hip_below_knees = None
+            events.clear()
 
             lock_streak = 0
             top_streak = 0
@@ -428,16 +490,24 @@ def main():
     if max_smooth_y_frame is not None:
         print(f"Bottom approximatif: frame={max_smooth_y_frame} t={max_smooth_y_frame/fps_video:.2f}s")
 
-    if descent_amp_px is not None:
-        print(f"Amplitude descente (px): ~{descent_amp_px:.1f}")
+    # Afficher l'angle genou minimal observé et le seuil
+    if min_knee_angle is not None:
+        print(f"Angle genou minimal observé: {min_knee_angle:.1f} deg")
     else:
-        print("Amplitude descente: non mesurée")
+        print("Angle genou minimal observé: non mesuré")
+
+    print(f"Seuil angle genou (lock): {LOCK_ANGLE_DEG:.1f} deg")
+
+    # Infos bottom
+    if bottom_knee_angle is not None:
+        print(f"Angle genou au bottom: {bottom_knee_angle:.1f} deg")
+    if hip_below_knees is not None:
+        print(f"Hanche sous genoux (au bottom): {hip_below_knees}")
 
     if descent_insufficient:
         print("FAUTE: descente insuffisante détectée.")
-        print(f"  - amplitude ~ {descent_amp_px:.1f}px (< {MIN_DESCENT_RATIO_OF_HIPWIDTH*100:.1f}% hipWidth)")
     else:
-        print("OK: descente suffisante détectée (au-dessus du seuil).")
+        print("OK: descente suffisante détectée.")
 
 
 if __name__ == "__main__":
