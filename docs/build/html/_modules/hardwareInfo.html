@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+
+<html lang="fr" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>hardwareInfo &#8212; Documentation ProjetIA_m1_s2 1.0</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=7a28dfa3"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/translations.js?v=e6b791cb"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Recherche" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Code source de hardwareInfo</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">platform</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">cv2_enumerate_cameras</span><span class="w"> </span><span class="kn">import</span> <span class="n">enumerate_cameras</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cv2.videoio_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">getBackendName</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">cv2_enumerate_cameras</span><span class="w"> </span><span class="kn">import</span> <span class="n">supported_backends</span>
+
+<div class="viewcode-block" id="getDevices">
+<a class="viewcode-back" href="../hardwareInfo.html#hardwareInfo.getDevices">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">getDevices</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span> <span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot;permet de récupérer la liste des GPUs disponible et d&#39;ajouter l&#39;option CPU à la liste du matériel disponible</span>
+<span class="sd">   Returns:</span>
+<span class="sd">       list: liste des gpu et du cpu&quot;&quot;&quot;</span>
+   <span class="n">listMat</span> <span class="o">=</span> <span class="p">[]</span>
+   <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()):</span>
+      <span class="n">listMat</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">get_device_properties</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+   <span class="n">listMat</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;Plateforme &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">platform</span><span class="o">.</span><span class="n">processor</span><span class="p">())</span><span class="o">+</span><span class="s2">&quot; avec &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">())</span><span class="o">+</span><span class="s2">&quot; coeurs&quot;</span><span class="p">)</span>
+   <span class="k">return</span> <span class="n">listMat</span></div>
+
+
+<div class="viewcode-block" id="getCameras">
+<a class="viewcode-back" href="../hardwareInfo.html#hardwareInfo.getCameras">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">getCameras</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span> <span class="p">:</span>
+<span class="w">   </span><span class="sd">&quot;&quot;&quot;permet de récupérer la liste des cameras disponible</span>
+<span class="sd">   Returns:</span>
+<span class="sd">       list: liste des caméras&quot;&quot;&quot;</span>
+   <span class="n">listCam</span> <span class="o">=</span> <span class="p">[]</span>
+   <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+   <span class="k">for</span> <span class="n">cam</span> <span class="ow">in</span> <span class="n">enumerate_cameras</span><span class="p">():</span>
+      <span class="n">listCam</span><span class="o">.</span><span class="n">append</span> <span class="p">(</span><span class="n">i</span><span class="p">)</span>  <span class="c1">#(cam.index, cam.name)</span>
+      <span class="n">i</span><span class="o">+=</span><span class="mi">1</span>
+   <span class="k">return</span> <span class="n">listCam</span> <span class="k">if</span> <span class="n">listCam</span> <span class="o">!=</span> <span class="p">[]</span> <span class="k">else</span> <span class="p">[]</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProjetIA_m1_s2</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contenu</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../avoirVideo.html">avoirVideo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controleQualitePython.html">controleQualitePython module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hardwareInfo.html">hardwareInfo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../multiThreading.html">multiThreading module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../onnxOptimiser.html">onnxOptimiser module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../regleDeveloppeCouche.html">regleDeveloppeCouche module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../GUI.html">GUI module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../enumIndice.html">enumIndice module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../exportationDonneeCSV.html">exportationDonneeCSV module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../regleSouleveDeTerre.html">regleSouleveDeTerre module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../squatDataRetrieve.html">squatDataRetrieve module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../traitementVideo.html">traitementVideo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterConfig.html">tkinterConfig module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterObjects.html">tkinterObjects module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterOutputData.html">tkinterOutputData module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../trouverArticulationYolo.html">trouverArticulationYolo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils.html">utils module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Code du module</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Bream Team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

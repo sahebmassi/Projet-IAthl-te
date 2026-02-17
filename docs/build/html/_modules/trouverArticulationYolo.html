@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+
+<html lang="fr" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>trouverArticulationYolo &#8212; Documentation ProjetIA_m1_s2 1.0</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=7a28dfa3"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/translations.js?v=e6b791cb"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Recherche" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Code source de trouverArticulationYolo</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">mediapipe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enumIndice</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ultralytics</span><span class="w"> </span><span class="kn">import</span> <span class="n">YOLO</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">traitementVideo</span><span class="w"> </span><span class="kn">import</span> <span class="n">choixDevice</span>
+
+<span class="n">mouseX</span><span class="p">,</span> <span class="n">mouseY</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span>
+
+<div class="viewcode-block" id="mouseCallBack">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.mouseCallBack">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">mouseCallBack</span><span class="p">(</span><span class="n">event</span> <span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">x</span> <span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span> <span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">flags</span> <span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">param</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Callback permettant de récupérer les coordonnées de la souris lors d&#39;un mouvement</span>
+<span class="sd">    Args:</span>
+<span class="sd">        event (int): Type d&#39;événement déclenché par la souris</span>
+<span class="sd">        x (int): Coordonnée X de la souris</span>
+<span class="sd">        y (int): Coordonnée Y de la souris</span>
+<span class="sd">        flags (int): Indicateurs supplémentaires pour les événements de la souris</span>
+<span class="sd">        param (any): Paramètre optionnel pouvant être utilisé pour transmettre des données supplémentaires</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        None: Cette fonction ne retourne rien, elle met à jour les coordonnées globales de la souris&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">mouseX</span><span class="p">,</span> <span class="n">mouseY</span>
+    <span class="k">if</span> <span class="n">event</span> <span class="o">==</span> <span class="n">cv2</span><span class="o">.</span><span class="n">EVENT_MOUSEMOVE</span><span class="p">:</span>
+        <span class="n">mouseX</span><span class="p">,</span> <span class="n">mouseY</span> <span class="o">=</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="detecterYolo">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.detecterYolo">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">detecterYolo</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">:</span> <span class="n">YOLO</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">maxDet</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Détecte les objets dans une image avec YOLO.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        image (np.ndarray): L&#39;image à analyser.</span>
+<span class="sd">        modelYolo (YOLO): Le modèle YOLO pour la détection des objets.</span>
+<span class="sd">        conf (float, optional): Seuil de confiance minimal. Par défaut à 0.5.</span>
+<span class="sd">        maxDet (int, optional): Nombre maximal de détections. Par défaut à None.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: Résultats des détections YOLO&quot;&quot;&quot;</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">modelYolo</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">choixDevice</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">track</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="n">image</span><span class="p">,</span> <span class="n">persist</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">conf</span><span class="o">=</span><span class="n">conf</span><span class="p">,</span><span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">save</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">max_det</span><span class="o">=</span><span class="n">maxDet</span><span class="p">,</span> <span class="n">tracker</span><span class="o">=</span><span class="s2">&quot;bytetrack.yaml&quot;</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="extraireArticulation">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.extraireArticulation">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extraireArticulation</span><span class="p">(</span><span class="n">results</span> <span class="p">:</span> <span class="nb">any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extrait les points clés des résultats YOLO.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        results: Résultats YOLO</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: Liste des coordonnées des points clés&quot;&quot;&quot;</span>
+    <span class="n">keypoints_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">keypoints</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">keypoints</span><span class="o">.</span><span class="n">xy</span><span class="p">:</span>
+            <span class="n">keypoints_list</span><span class="o">.</span><span class="n">append</span><span class="p">([(</span><span class="nb">int</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">keypoints</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">keypoints_list</span></div>
+
+
+<div class="viewcode-block" id="extraireBoxes">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.extraireBoxes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extraireBoxes</span><span class="p">(</span><span class="n">results</span> <span class="p">:</span> <span class="nb">any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extrait les boîtes englobantes des résultats YOLO.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        results: Résultats YOLO</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: Liste des boîtes englobantes [(x_min, y_min, x_max, y_max), ...]&quot;&quot;&quot;</span>
+    <span class="n">boxes</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">box</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">boxes</span><span class="o">.</span><span class="n">xyxy</span><span class="p">:</span>
+            <span class="n">xMin</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMax</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">box</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="n">boxes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">xMin</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMax</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">boxes</span></div>
+
+
+
+<div class="viewcode-block" id="extraireArtBox">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.extraireArtBox">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extraireArtBox</span><span class="p">(</span><span class="n">results</span> <span class="p">:</span> <span class="nb">any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extrait les point clés et les boîtes englobantes des résultats YOLO</span>
+<span class="sd">    Args:</span>
+<span class="sd">        results (any): Résultats du modèle Yolo</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: Tuple contenant la liste des keypoints et des boîtes englobantes&quot;&quot;&quot;</span>
+    <span class="n">keypoints_list</span><span class="p">,</span> <span class="n">boxes</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">keypoints</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">keypoints</span><span class="o">.</span><span class="n">xy</span><span class="p">:</span>
+            <span class="n">keypoints_list</span><span class="o">.</span><span class="n">append</span><span class="p">([(</span><span class="nb">int</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">keypoints</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">box</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">boxes</span><span class="o">.</span><span class="n">xyxy</span><span class="p">:</span>
+            <span class="n">xMin</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMax</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">box</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+            <span class="n">boxes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">xMin</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMax</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">keypoints_list</span><span class="p">,</span> <span class="n">boxes</span></div>
+
+
+<div class="viewcode-block" id="meilleurBoxeCoord">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.meilleurBoxeCoord">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">meilleurBoxeCoord</span><span class="p">(</span><span class="n">boxes</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">xRef</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">yRef</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Trouve la boîte englobante la plus proche d&#39;un point de référence.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        boxes (list): Liste des boîtes englobantes.</span>
+<span class="sd">        xRef (int): Coordonnée X de référence.</span>
+<span class="sd">        yRef (int): Coordonnée Y de référence.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: La boîte la plus proche [(x_min, y_min, x_max, y_max)] ou [] si aucune boîte.&quot;&quot;&quot;</span>
+    <span class="n">best_box</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">min_offset</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">xMin</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMax</span> <span class="ow">in</span> <span class="n">boxes</span><span class="p">:</span>
+        <span class="n">boxCentreX</span><span class="p">,</span> <span class="n">boxCentreY</span> <span class="o">=</span> <span class="p">(</span><span class="n">xMin</span> <span class="o">+</span> <span class="n">xMax</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="n">yMin</span> <span class="o">+</span> <span class="n">yMax</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">xRef</span> <span class="o">-</span> <span class="n">boxCentreX</span><span class="p">)</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="n">yRef</span> <span class="o">-</span> <span class="n">boxCentreY</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">offset</span> <span class="o">&lt;</span> <span class="n">min_offset</span><span class="p">:</span>
+            <span class="n">min_offset</span> <span class="o">=</span> <span class="n">offset</span>
+            <span class="n">best_box</span> <span class="o">=</span> <span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMax</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="p">[</span><span class="n">best_box</span><span class="p">]</span> <span class="k">if</span> <span class="n">best_box</span> <span class="k">else</span> <span class="p">[]</span></div>
+
+
+<div class="viewcode-block" id="meilleurBoxeArea">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.meilleurBoxeArea">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">meilleurBoxeArea</span><span class="p">(</span><span class="n">results</span> <span class="p">:</span><span class="nb">any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Retourne la boîte englobante avec la plus grande aire.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        results: Résultats YOLO contenant les boîtes détectées.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: La boîte englobante ayant la plus grande aire [(x_min, y_min, x_max, y_max)] ou [] si aucune boîte.&quot;&quot;&quot;</span>
+    <span class="n">max_box</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">max_area</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">boxes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">box</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">boxes</span><span class="p">:</span>
+                <span class="n">x_min</span><span class="p">,</span> <span class="n">y_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">y_max</span> <span class="o">=</span> <span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">box</span><span class="o">.</span><span class="n">xyxy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+                <span class="n">area</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_max</span> <span class="o">-</span> <span class="n">x_min</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">y_max</span> <span class="o">-</span> <span class="n">y_min</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">area</span> <span class="o">&gt;</span> <span class="n">max_area</span><span class="p">:</span>
+                    <span class="n">max_area</span> <span class="o">=</span> <span class="n">area</span>
+                    <span class="n">max_box</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">y_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">y_max</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="p">[</span><span class="n">max_box</span><span class="p">]</span> <span class="k">if</span> <span class="n">max_box</span> <span class="k">else</span> <span class="p">[]</span></div>
+
+
+<div class="viewcode-block" id="yolo1Art">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.yolo1Art">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">yolo1Art</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">modelMP</span><span class="p">:</span> <span class="n">mp</span><span class="o">.</span><span class="n">solutions</span><span class="o">.</span><span class="n">pose</span><span class="o">.</span><span class="n">Pose</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">:</span> <span class="n">YOLO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Permet d&#39;obtenir 17 points d&#39;articulations via le modèle YoloVX.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        image (np.ndarray): L&#39;image à analyser.</span>
+<span class="sd">        modelYolo (YOLO): Le modèle YOLO pour la détection.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: Liste des coordonnées des points d&#39;articulations.&quot;&quot;&quot;</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">detecterYolo</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">,</span> <span class="n">conf</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">extraireArticulation</span><span class="p">(</span><span class="n">results</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">results</span> <span class="k">else</span> <span class="p">[]</span></div>
+
+
+<div class="viewcode-block" id="yoloArt">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.yoloArt">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">yoloArt</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">modelMP</span><span class="p">:</span> <span class="n">mp</span><span class="o">.</span><span class="n">solutions</span><span class="o">.</span><span class="n">pose</span><span class="o">.</span><span class="n">Pose</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">:</span> <span class="n">YOLO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Permet d&#39;obtenir les points d&#39;articulations de jusqu&#39;à cinq personnes via le modèle YoloVX.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        image (np.ndarray): L&#39;image à analyser.</span>
+<span class="sd">        modelYolo (YOLO): Le modèle YOLO pour la détection.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: Liste contenant les coordonnées des points d&#39;articulations de chaque personne détectée.&quot;&quot;&quot;</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">detecterYolo</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">,</span> <span class="n">conf</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">extraireArticulation</span><span class="p">(</span><span class="n">results</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="yoloAllBox">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.yoloAllBox">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">yoloAllBox</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">modelMP</span><span class="p">:</span> <span class="n">mp</span><span class="o">.</span><span class="n">solutions</span><span class="o">.</span><span class="n">pose</span><span class="o">.</span><span class="n">Pose</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">:</span> <span class="n">YOLO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Détecte toutes les boîtes englobantes des personnes présentes dans l&#39;image avec YOLO.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        image (np.ndarray): L&#39;image à analyser.</span>
+<span class="sd">        modelYolo (YOLO): Le modèle YOLO pour la détection.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: Liste des boîtes englobantes.&quot;&quot;&quot;</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">detecterYolo</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">extraireBoxes</span><span class="p">(</span><span class="n">results</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="yoloCentreBox">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.yoloCentreBox">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">yoloCentreBox</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">modelMP</span><span class="p">:</span> <span class="n">mp</span><span class="o">.</span><span class="n">solutions</span><span class="o">.</span><span class="n">pose</span><span class="o">.</span><span class="n">Pose</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">:</span> <span class="n">YOLO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Détecte la boîte englobante la plus centrée dans l&#39;image avec YOLO.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        image (np.ndarray): L&#39;image à analyser.</span>
+<span class="sd">        modelYolo (YOLO): Le modèle YOLO pour la détection.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: La boîte la plus centrée [(x_min, y_min, x_max, y_max)].&quot;&quot;&quot;</span>
+    <span class="n">xRef</span><span class="p">,</span> <span class="n">yRef</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">meilleurBoxeCoord</span><span class="p">(</span><span class="n">yoloAllBox</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">),</span> <span class="n">xRef</span><span class="p">,</span> <span class="n">yRef</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="yoloSourisBox">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.yoloSourisBox">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">yoloSourisBox</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">modelMP</span><span class="p">:</span> <span class="n">mp</span><span class="o">.</span><span class="n">solutions</span><span class="o">.</span><span class="n">pose</span><span class="o">.</span><span class="n">Pose</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">:</span> <span class="n">YOLO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Détecte la boîte englobante la plus proche de la position de la souris avec YOLO.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        image (np.ndarray): L&#39;image à analyser.</span>
+<span class="sd">        modelYolo (YOLO): Le modèle YOLO pour la détection.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: La boîte la plus proche [(x_min, y_min, x_max, y_max)].&quot;&quot;&quot;</span>
+    <span class="n">xRef</span><span class="p">,</span> <span class="n">yRef</span> <span class="o">=</span> <span class="p">(</span><span class="n">mouseX</span><span class="p">,</span> <span class="n">mouseY</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="n">mouseX</span><span class="p">,</span> <span class="n">mouseY</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="k">else</span> <span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">meilleurBoxeCoord</span><span class="p">(</span><span class="n">yoloAllBox</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="n">modelMP</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">),</span> <span class="n">xRef</span><span class="p">,</span> <span class="n">yRef</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="yoloBarreBox">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.yoloBarreBox">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">yoloBarreBox</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">modelMP</span><span class="p">:</span> <span class="n">mp</span><span class="o">.</span><span class="n">solutions</span><span class="o">.</span><span class="n">pose</span><span class="o">.</span><span class="n">Pose</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">:</span> <span class="n">YOLO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Détecte la boîte englobante de la barre en métal avec YOLO.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        image (np.ndarray): L&#39;image à analyser.</span>
+<span class="sd">        modelMP (mp.solutions.pose.Pose): Modèle Mediapipe (non utilisé ici).</span>
+<span class="sd">        modelYolo (YOLO): Le modèle YOLO utilisé pour la détection.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: La boîte englobante de la barre [(x_min, y_min, x_max, y_max)] ou [].&quot;&quot;&quot;</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">detecterYolo</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">,</span> <span class="n">conf</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">maxDet</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">meilleurBoxeArea</span><span class="p">(</span><span class="n">results</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="calculer_distance">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.calculer_distance">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">calculer_distance</span><span class="p">(</span><span class="n">point1</span><span class="p">,</span> <span class="n">point2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calcule la distance euclidienne entre deux points.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        point1 (tuple): Coordonnées du premier point (x, y).</span>
+<span class="sd">        point2 (tuple): Coordonnées du second point (x, y).</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        float: Distance euclidienne entre les deux points.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">point1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">point2</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">point1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">point2</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="distancePersonneBarre">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.distancePersonneBarre">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">distancePersonneBarre</span><span class="p">(</span><span class="n">coordonnees</span> <span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">box</span> <span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Renvoie une liste des distances entre chaque personne et la barre de musculation.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        coordonnees (list): Liste des coordonnées des personnes détectées.</span>
+<span class="sd">        box (list): Coordonnées de la boîte englobante de la barre.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: Distance entre chaque personne et la barre.&quot;&quot;&quot;</span>
+    <span class="n">x_min</span><span class="p">,</span> <span class="n">y_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">y_max</span> <span class="o">=</span> <span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">x_centre</span><span class="p">,</span> <span class="n">y_centre</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_min</span> <span class="o">+</span> <span class="n">x_max</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="n">y_min</span> <span class="o">+</span> <span class="n">y_max</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">distances</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">personne</span> <span class="ow">in</span> <span class="n">coordonnees</span><span class="p">:</span>
+        <span class="n">poignet_droit</span><span class="p">,</span> <span class="n">poignet_gauche</span><span class="p">,</span> <span class="n">nez</span> <span class="o">=</span> <span class="n">personne</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">POIGNET_DROIT</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="n">personne</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">POIGNET_GAUCHE</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="n">personne</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">NEZ</span><span class="o">.</span><span class="n">value</span><span class="p">]</span>
+        <span class="n">point_ref</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">div</span> <span class="o">=</span> <span class="mi">3</span>
+
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">poignet_droit</span><span class="p">):</span>
+            <span class="n">div</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">poignet_gauche</span><span class="p">):</span>
+            <span class="n">div</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nez</span><span class="p">):</span>
+            <span class="n">div</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">div</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x_nez</span><span class="p">,</span> <span class="n">y_nez</span> <span class="o">=</span> <span class="n">nez</span>
+            <span class="n">x_poignet_droit</span><span class="p">,</span> <span class="n">y_poignet_droit</span> <span class="o">=</span> <span class="n">poignet_droit</span>
+            <span class="n">x_poignet_gauche</span><span class="p">,</span> <span class="n">y_poignet_gauche</span> <span class="o">=</span> <span class="n">poignet_gauche</span>
+            <span class="n">point_ref</span> <span class="o">=</span> <span class="p">((</span><span class="n">x_nez</span> <span class="o">+</span> <span class="n">x_poignet_droit</span> <span class="o">+</span> <span class="n">x_poignet_gauche</span><span class="p">)</span> <span class="o">//</span> <span class="n">div</span><span class="p">),</span> <span class="p">((</span><span class="n">y_nez</span> <span class="o">+</span> <span class="n">y_poignet_droit</span> <span class="o">+</span> <span class="n">y_poignet_gauche</span><span class="p">)</span> <span class="o">//</span> <span class="n">div</span><span class="p">)</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">point_ref</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">distances</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">calculer_distance</span><span class="p">(</span><span class="n">point_ref</span><span class="p">,</span> <span class="p">(</span><span class="n">x_centre</span><span class="p">,</span> <span class="n">y_centre</span><span class="p">)))</span>
+
+    <span class="k">return</span> <span class="n">distances</span></div>
+
+
+
+<div class="viewcode-block" id="personneProcheBarre">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.personneProcheBarre">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">personneProcheBarre</span><span class="p">(</span><span class="n">coordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">box</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Détermine l&#39;indice de la personne la plus proche de la barre détectée.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        coordonnees (list): Liste des coordonnées des personnes détectées.</span>
+<span class="sd">        box (list): Coordonnées de la boîte englobante de la barre.</span>
+<span class="sd">        image (np.ndarray): L&#39;image à analyser.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        int: Indice de la personne la plus proche de la barre ou -1 si aucune personne détectée.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">box</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">coordonnees</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+    
+    <span class="n">distances</span> <span class="o">=</span> <span class="n">distancePersonneBarre</span><span class="p">(</span><span class="n">coordonnees</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">distances</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">distances</span><span class="p">))</span> <span class="k">if</span> <span class="n">distances</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="yoloProcheBarreArtBox">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.yoloProcheBarreArtBox">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">yoloProcheBarreArtBox</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">modelMP</span><span class="p">:</span> <span class="n">mp</span><span class="o">.</span><span class="n">solutions</span><span class="o">.</span><span class="n">pose</span><span class="o">.</span><span class="n">Pose</span><span class="p">,</span> <span class="n">modelYolo</span><span class="p">:</span> <span class="n">YOLO</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">list</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Retourne les articulations de la personne la plus proche de la barre ainsi que la boîte de la barre.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        image (np.ndarray): L&#39;image à analyser.</span>
+<span class="sd">        modelMP (mp.solutions.pose.Pose): Modèle Mediapipe (non utilisé ici).</span>
+<span class="sd">        modelYolo (YOLO): Le modèle YOLO utilisé pour la détection.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple[list, list]: Liste des articulations de la personne la plus proche et la boîte englobante de la barre.&quot;&quot;&quot;</span>
+    <span class="n">box</span> <span class="o">=</span> <span class="n">yoloBarreBox</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">modelMP</span><span class="p">,</span> <span class="p">[</span><span class="n">modelYolo</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+    <span class="n">coord</span> <span class="o">=</span> <span class="n">yoloArt</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">modelMP</span><span class="p">,</span> <span class="p">[</span><span class="n">modelYolo</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+    <span class="n">idPers</span> <span class="o">=</span> <span class="n">personneProcheBarre</span><span class="p">(</span><span class="n">coord</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">([</span><span class="n">coord</span><span class="p">[</span><span class="n">idPers</span><span class="p">]],</span> <span class="n">box</span><span class="p">)</span> <span class="k">if</span> <span class="n">idPers</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span> <span class="k">else</span> <span class="p">([],</span> <span class="p">[])</span></div>
+
+
+<div class="viewcode-block" id="yoloVOT">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.yoloVOT">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">yoloVOT</span><span class="p">(</span><span class="n">image</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">modelMP</span><span class="p">:</span> <span class="n">mp</span><span class="o">.</span><span class="n">solutions</span><span class="o">.</span><span class="n">pose</span><span class="o">.</span><span class="n">Pose</span><span class="p">,</span> <span class="n">modelYolo</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">list</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Renvoie les coordonnées de la boite contenant la personne détecté par le modele</span>
+<span class="sd">    Args:</span>
+<span class="sd">        image (np.ndarray): L&#39;image à analyser</span>
+<span class="sd">        modelMP (mp.solutions.pose.Pose): Modèle Mediapipe (non utilisé ici -&gt; pour la généricité des fonctions).</span>
+<span class="sd">        modelYolo (YOLO): Le modèle YOLO utilisé</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: Liste des coordonnées de la personne</span>
+<span class="sd">        list: Liste des coordonnées de la boite englobant la personne&quot;&quot;&quot;</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">choixDevice</span><span class="p">()</span>
+    <span class="n">resultsByteTrack</span> <span class="o">=</span> <span class="n">modelYolo</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">track</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">persist</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">classes</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">conf</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">tracker</span><span class="o">=</span><span class="s2">&quot;bytetrack.yaml&quot;</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">art</span><span class="p">,</span> <span class="n">box</span> <span class="o">=</span> <span class="n">extraireArtBox</span><span class="p">(</span><span class="n">resultsByteTrack</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">art</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="calculerVitessePixels">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.calculerVitessePixels">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">calculerVitessePixels</span><span class="p">(</span><span class="n">box</span> <span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">fps</span> <span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calcule la vitesse moyenne en pixels par seconde d&#39;un objet</span>
+<span class="sd">    Args:</span>
+<span class="sd">        coordonnees (list): Liste des positions l&#39;objet à chaque frame.</span>
+<span class="sd">        fps (float): Nombre d&#39;images par seconde de la vidéo.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        float: Vitesse moyenne en pixels par seconde.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">box</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">fps</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    
+    <span class="n">distance_totale_pixels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">([</span><span class="n">coord</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">box</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">([</span><span class="n">coord</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">box</span><span class="p">])</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+    <span class="n">duree_totale</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">box</span><span class="p">)</span> <span class="o">/</span> <span class="n">fps</span>
+    
+    <span class="k">return</span> <span class="n">distance_totale_pixels</span> <span class="o">/</span> <span class="n">duree_totale</span> <span class="k">if</span> <span class="n">duree_totale</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span></div>
+
+
+
+<div class="viewcode-block" id="calculerDistancePixels">
+<a class="viewcode-back" href="../trouverArticulationYolo.html#trouverArticulationYolo.calculerDistancePixels">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">calculerDistancePixels</span><span class="p">(</span><span class="n">box</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calcule la distance totale parcourue en pixels par un objet</span>
+<span class="sd">    Args:</span>
+<span class="sd">        box (list): Liste des positions de l&#39;objet au fil des frames.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        float: Distance totale parcourue en pixels.&quot;&quot;&quot;</span>
+    <span class="n">distance_totale</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">box</span><span class="p">)):</span>
+        <span class="n">x1</span><span class="p">,</span> <span class="n">y1</span> <span class="o">=</span> <span class="n">box</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span> <span class="o">=</span> <span class="n">box</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">distance_totale</span> <span class="o">+=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">x2</span> <span class="o">-</span> <span class="n">x1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">y2</span> <span class="o">-</span> <span class="n">y1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">distance_totale</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProjetIA_m1_s2</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contenu</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../avoirVideo.html">avoirVideo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../codeS3.html">codeS3 module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controleQualitePython.html">controleQualitePython module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hardwareInfo.html">hardwareInfo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../multiThreading.html">multiThreading module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../onnxOptimiser.html">onnxOptimiser module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../regleDeveloppeCouche.html">regleDeveloppeCouche module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../GUI.html">GUI module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../enumIndice.html">enumIndice module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../exportationDonneeCSV.html">exportationDonneeCSV module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../regleSouleveDeTerre.html">regleSouleveDeTerre module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../squatDataRetrieve.html">squatDataRetrieve module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../traitementVideo.html">traitementVideo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterConfig.html">tkinterConfig module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterObjects.html">tkinterObjects module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterOutputData.html">tkinterOutputData module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../trouverArticulationYolo.html">trouverArticulationYolo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils.html">utils module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Code du module</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Bream Team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

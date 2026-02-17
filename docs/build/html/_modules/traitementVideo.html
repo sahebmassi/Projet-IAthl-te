@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+
+<html lang="fr" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>traitementVideo &#8212; Documentation ProjetIA_m1_s2 1.0</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=7a28dfa3"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/translations.js?v=e6b791cb"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Recherche" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Code source de traitementVideo</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enumIndice</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">utils</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">squatDataRetrieve</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">regleSouleveDeTerre</span><span class="w"> </span><span class="kn">import</span> <span class="n">souleverDeTerreValue</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">regleDeveloppeCouche</span><span class="w"> </span><span class="kn">import</span> <span class="n">developpeCoucheCoord</span>
+
+<div class="viewcode-block" id="rien">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.rien">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">rien</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">winName</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Cette fonction permet de ne pas avoir de traitement des donnes pour tester si juste la recherche d&#39;articulations fonctionne</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): toutes les coordonnees depuis le début de l&#39;enregistrement</span>
+<span class="sd">        image (np.ndarray): l&#39;image à modifier&quot;&quot;&quot;</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">winName</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="traitementVideoAngle3coordonnees">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.traitementVideoAngle3coordonnees">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">traitementVideoAngle3coordonnees</span><span class="p">(</span><span class="n">toutesCoordonnees</span> <span class="p">:</span> <span class="nb">list</span><span class="p">,</span><span class="n">image</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">winName</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;calcul l&#39;angle entre entre l&#39;épaule droite le coude droit et le poignée droit et mets les points verts sur les articulations</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): toutes les coordonnees depuis le début de l&#39;enregistrement</span>
+<span class="sd">        image (np.ndarray): l&#39;image à modifier&quot;&quot;&quot;</span>
+    <span class="n">coordonneesActuelle</span> <span class="o">=</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">coordonneesActuelle</span><span class="p">:</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">point</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">coordonneesActuelle</span><span class="p">)</span> <span class="o">==</span> <span class="mi">33</span> <span class="p">:</span>
+        <span class="n">angle</span> <span class="o">=</span> <span class="n">calculerAngle</span><span class="p">(</span><span class="n">coordonneesActuelle</span><span class="p">,</span><span class="n">IndiceMediaPipe</span><span class="o">.</span><span class="n">EPAULE_DROITE</span><span class="o">.</span><span class="n">value</span><span class="p">,</span><span class="n">IndiceMediaPipe</span><span class="o">.</span><span class="n">COUDE_DROIT</span><span class="o">.</span><span class="n">value</span><span class="p">,</span><span class="n">IndiceMediaPipe</span><span class="o">.</span><span class="n">POIGNET_DROIT</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">font</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Angle: </span><span class="si">{</span><span class="n">angle</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">°&quot;</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">250</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span> <span class="n">font</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="mi">2</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">)</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">winName</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Art">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.Art">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">Art</span><span class="p">(</span><span class="n">personnes</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span> <span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mets les points d&#39;articulation de toutes les personnes captées sur l&#39;image</span>
+<span class="sd">    Args:</span>
+<span class="sd">        personnes (list): Liste des personnes captées avec leur coordonnées</span>
+<span class="sd">        image (np.ndarray): L&#39;image à modifier&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">personne</span> <span class="ow">in</span> <span class="n">personnes</span> <span class="p">:</span>
+        <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">personne</span> <span class="p">:</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">point</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Box">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.Box">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">Box</span><span class="p">(</span><span class="n">boxes</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span> <span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mets les rectangles de toutes les boxes captées sur l&#39;image</span>
+<span class="sd">    Args:</span>
+<span class="sd">        boxes (list): Liste des boxes captées avec leur sommets</span>
+<span class="sd">        image (np.ndarray): L&#39;image à modifier&quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">box</span> <span class="ow">in</span> <span class="n">boxes</span> <span class="p">:</span>
+        <span class="n">xMin</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMax</span> <span class="o">=</span> <span class="n">box</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">yMin</span><span class="p">),</span> <span class="p">(</span><span class="n">xMax</span><span class="p">,</span> <span class="n">yMax</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="affArt">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affArt">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affArt</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">winName</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les articulations de toutes les personnes captées sur l&#39;image</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): Regroupe toutes les coordonnées depuis le début de la vidéo</span>
+<span class="sd">        image (np.ndarray): L&#39;image à modifier&quot;&quot;&quot;</span>
+    <span class="n">Art</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span><span class="n">image</span><span class="p">)</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">winName</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affBox">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affBox">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affBox</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">winName</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les boxes de toutes les personnes captées sur l&#39;image</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): Regroupe toutes les coordonnées depuis le début de la vidéo</span>
+<span class="sd">        image (np.ndarray): L&#39;image à modifier&quot;&quot;&quot;</span>
+    <span class="n">Box</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span><span class="n">image</span><span class="p">)</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">winName</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affArtBox">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affArtBox">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affArtBox</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">winName</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les boxes et les articulations de toutes les personnes captées sur l&#39;image</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): Regroupe toutes les coordonnées depuis le début de la vidéo</span>
+<span class="sd">        image (np.ndarray): L&#39;image à modifier&quot;&quot;&quot;</span>
+    <span class="n">Art</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span><span class="n">image</span><span class="p">)</span>
+    <span class="n">Box</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span><span class="n">image</span><span class="p">)</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">winName</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affAngleGenouxSouleverTerre">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affAngleGenouxSouleverTerre">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affAngleGenouxSouleverTerre</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">anglesGenoux</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information sur l&#39;angle du genoux pour le soulever de Terre</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        anglesGenoux (list): les données de l&#39;angle du genoux&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">anglesGenoux</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">:</span>
+        <span class="n">toutesCoordonnees</span> <span class="o">=</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">HANCHE_DROITE</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">GENOU_DROIT</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">TALON_DROIT</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">HANCHE_DROITE</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">GENOU_DROIT</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span><span class="n">thickness</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">GENOU_DROIT</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">TALON_DROIT</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span><span class="n">thickness</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Angle du genoux droit : </span><span class="si">{</span><span class="n">anglesGenoux</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">2</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">HANCHE_GAUCHE</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">GENOU_GAUCHE</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">TALON_GAUCHE</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">HANCHE_GAUCHE</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">GENOU_GAUCHE</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span><span class="n">thickness</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">GENOU_GAUCHE</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="n">IndiceYolo</span><span class="o">.</span><span class="n">TALON_GAUCHE</span><span class="o">.</span><span class="n">value</span><span class="p">],</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span><span class="n">thickness</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Angle du genoux gauche : </span><span class="si">{</span><span class="n">anglesGenoux</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">60</span><span class="p">),</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">2</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affEpauleArriere">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affEpauleArriere">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affEpauleArriere</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">epauleArriere</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span> <span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information sur les épaules en arrière ( pour l&#39;intant vide car les informations déjà afficher pour une autre vérification dans le mouvement)</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        epauleArriere (list): les données pour vérifier les épaules&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="affBarreVersBas">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affBarreVersBas">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affBarreVersBas</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pointBarreEpaule</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information de si la barre est descendu pendnat la monté</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        pointBarreEpaule (list): les données pour vérifier si la barre est descendu pendant la monté&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pointBarreEpaule</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">:</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">pointBarreEpaule</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">pointBarreEpaule</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affAiderCuisse">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affAiderCuisse">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affAiderCuisse</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">aiderCuisse</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information pour savoir si il y a eu un aide des cuisses (pareil que affEpauleArriere)</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        aiderCuisse (list): Les données pour vérifier si il y a eu aide des cuisse&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="affRedescendreBarre">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affRedescendreBarre">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affRedescendreBarre</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pointBarre</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information pour savoir si la barre descend bien à partir de l&#39;ordre donné</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        pointBarre (list): Les données pour vérifier si la barre descend bien à partir de l&#39;ordre donné&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pointBarre</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">:</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">pointBarre</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">pointBarre</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">pointBarre</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pointBarre</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span><span class="n">thickness</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affRamenerBarreControler">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affRamenerBarreControler">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affRamenerBarreControler</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pointBarrePoignet</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information pour savoir si la descente de la barre est controlé</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        pointBarrePoignet (list): Les données pour vérifier si la descente de la barre est controlé&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pointBarrePoignet</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">:</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">pointBarrePoignet</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">pointBarrePoignet</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affBougerPieds">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affBougerPieds">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affBougerPieds</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bougerPieds</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information pour savoir si les pieds ont bougé pendant le mouvement</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        bougerPieds (list): Les données pour vérifier si les pieds ont bougé pendant le mouvement&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bougerPieds</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">bougerPieds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">bougerPieds</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affInfoSouleveTerre">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affInfoSouleveTerre">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affInfoSouleveTerre</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">winName</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche toute les informations pour savoir si le mouvement est réussi</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        winName (str): nom de la fenêtre où afficher les informations&quot;&quot;&quot;</span>
+    <span class="n">toutesCoordonnees</span> <span class="o">=</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">souleverDeTerreValue</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">)</span>
+    <span class="n">affAngleGenouxSouleverTerre</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span><span class="n">image</span><span class="p">,</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">affEpauleArriere</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span><span class="n">image</span><span class="p">,</span><span class="n">value</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">affBarreVersBas</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span><span class="n">image</span><span class="p">,</span><span class="n">value</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="n">affAiderCuisse</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span><span class="n">image</span><span class="p">,</span><span class="n">value</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+    <span class="n">affRedescendreBarre</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span><span class="n">image</span><span class="p">,</span><span class="n">value</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+    <span class="n">affRamenerBarreControler</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span><span class="n">image</span><span class="p">,</span><span class="n">value</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span>
+    <span class="n">affBougerPieds</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span><span class="n">image</span><span class="p">,</span><span class="n">value</span><span class="p">[</span><span class="mi">6</span><span class="p">])</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">winName</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span></div>
+
+    
+<div class="viewcode-block" id="affOrientationTete">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affOrientationTete">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affOrientationTete</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">angleTete</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information sur la tête</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        angleTete (list): Les coordonées de la tête&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">angleTete</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">and</span> <span class="n">angleTete</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># Vérifie si angleTete est un nombre non nul</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Orientation Tete: </span><span class="si">{</span><span class="n">angleTete</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">2</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affContactBanc">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affContactBanc">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affContactBanc</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">contact</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information sur le contact avec le banc</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        angleTete (list): Les coordonées sur le contact avec le banc&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">contact</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">contact</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">pt</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">pt</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">contact</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">contact</span><span class="p">:</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">pt</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Rouge</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="s2">&quot;Contact Banc&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">60</span><span class="p">),</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="mi">2</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affPiedPlat">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affPiedPlat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affPiedPlat</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pieds</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information sur le contact avec le banc</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        angleTete (list): Les coordonées sur le contact avec le banc&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pieds</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">pieds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">pt</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">pt</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">pieds</span><span class="p">):</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">pieds</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">pieds</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="mi">5</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affDescenteBarre">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affDescenteBarre">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affDescenteBarre</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">descente</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information sur la descente de la barre</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        angleTete (list): Les coordonées sur la descente de la barre&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">descente</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">descente</span><span class="p">)</span> <span class="o">==</span> <span class="mi">8</span><span class="p">:</span>
+        <span class="n">barre</span><span class="p">,</span> <span class="n">epaule_gauche</span><span class="p">,</span> <span class="n">epaule_droite</span><span class="p">,</span> <span class="n">coude_gauche</span><span class="p">,</span> <span class="n">coude_droite</span><span class="p">,</span> <span class="n">hanche_gauche</span><span class="p">,</span> <span class="n">hanche_droite</span><span class="p">,</span> <span class="n">poitrine_abdo</span> <span class="o">=</span> <span class="n">descente</span>
+        <span class="n">points</span> <span class="o">=</span> <span class="p">[</span><span class="n">barre</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">barre</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">epaule_gauche</span><span class="p">,</span> <span class="n">epaule_droite</span><span class="p">,</span> <span class="n">coude_gauche</span><span class="p">,</span> <span class="n">coude_droite</span><span class="p">,</span> <span class="n">hanche_gauche</span><span class="p">,</span> <span class="n">hanche_droite</span><span class="p">,</span> <span class="n">poitrine_abdo</span><span class="p">]</span>
+        
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">pt</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">pt</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">points</span><span class="p">):</span>
+            <span class="n">couleurs</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> 
+            <span class="k">for</span> <span class="n">pt</span><span class="p">,</span> <span class="n">couleur</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">couleurs</span><span class="p">):</span>
+                <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> 
+                <span class="n">cv2</span><span class="o">.</span><span class="n">circle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="mi">5</span><span class="p">,</span> <span class="n">couleur</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">barre</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">barre</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">epaule_gauche</span><span class="p">,</span> <span class="n">epaule_droite</span><span class="p">,</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">165</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span> 
+            <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">hanche_gauche</span><span class="p">,</span> <span class="n">hanche_droite</span><span class="p">,</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="s2">&quot;Descente Barre&quot;</span><span class="p">,</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">120</span><span class="p">),</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">),</span> <span class="mi">2</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="affEspacementMain">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affEspacementMain">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affEspacementMain</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">angleTete</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information sur l&#39;espacement des mains (pareil que affEpauleArriere)</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        angleTete (list): Les coordonées sur l&#39;espacement des mains&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="affDeveloppeCouche">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affDeveloppeCouche">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affDeveloppeCouche</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">winName</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les information pour le mouvement developpe couche</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier</span>
+<span class="sd">        winName (str): nom de la fenêtre où afficher les informations&quot;&quot;&quot;</span>
+    <span class="n">toutesCoordonnees</span> <span class="o">=</span> <span class="n">toutesCoordonnees</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">developpeCoucheCoord</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">)</span>
+    <span class="n">affOrientationTete</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">res</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">affContactBanc</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">res</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">affPiedPlat</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">res</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="n">affEspacementMain</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">res</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+    <span class="n">affDescenteBarre</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">,</span> <span class="n">image</span><span class="p">,</span> <span class="n">res</span><span class="p">[</span><span class="mi">5</span><span class="p">])</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">winName</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="affichageOrienteSquat">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.affichageOrienteSquat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">affichageOrienteSquat</span><span class="p">(</span><span class="n">toutesCoordonnees</span> <span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">image</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">winName</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span><span class="o">-&gt;</span> <span class="kc">None</span> <span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Affiche les informations utile pour le squat</span>
+<span class="sd">    Args:</span>
+<span class="sd">        toutesCoordonnees (list): les coordonnées depuis le début du mouvement</span>
+<span class="sd">        image (np.ndarray): l&#39;image actuelle à modifier&quot;&quot;&quot;</span>
+    <span class="n">listeArt</span><span class="p">,</span> <span class="p">[</span><span class="n">anglesG</span><span class="p">,</span> <span class="n">angleD</span><span class="p">]</span> <span class="o">=</span> <span class="n">traitementSquat</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">)</span>
+    <span class="n">Art</span><span class="p">(</span><span class="n">listeArt</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span>
+    <span class="n">Box</span><span class="p">(</span><span class="n">toutesCoordonnees</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span><span class="n">image</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>        
+        <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="n">listeArt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">],</span><span class="n">listeArt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span><span class="mi">5</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">):</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="n">listeArt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">],</span><span class="n">listeArt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span><span class="mi">5</span><span class="p">)</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="n">listeArt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span><span class="n">listeArt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">255</span><span class="p">),</span><span class="mi">5</span><span class="p">)</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span><span class="n">listeArt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">4</span><span class="p">],</span><span class="n">listeArt</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">5</span><span class="p">],</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">255</span><span class="p">),</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">winName</span><span class="p">,</span> <span class="n">image</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="tracerTrajectoire">
+<a class="viewcode-back" href="../traitementVideo.html#traitementVideo.tracerTrajectoire">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">tracerTrajectoire</span><span class="p">(</span><span class="n">image</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">trajectoire</span> <span class="p">:</span> <span class="nb">list</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Trace la trajectoire d&#39;un objet en mouvement sur l&#39;image.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        image (numpy.ndarray): Image actuelle sur laquelle tracer la trajectoire.</span>
+<span class="sd">        trajectoire (list): Liste des coordonnées (x, y) du centre de l&#39;objet.&quot;&quot;&quot;</span>
+    <span class="n">couleur</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">trajectoire</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">trajectoire</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">trajectoire</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">cv2</span><span class="o">.</span><span class="n">line</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">trajectoire</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="n">trajectoire</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">couleur</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProjetIA_m1_s2</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contenu</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../avoirVideo.html">avoirVideo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../codeS3.html">codeS3 module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controleQualitePython.html">controleQualitePython module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hardwareInfo.html">hardwareInfo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../multiThreading.html">multiThreading module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../onnxOptimiser.html">onnxOptimiser module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../regleDeveloppeCouche.html">regleDeveloppeCouche module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../GUI.html">GUI module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../enumIndice.html">enumIndice module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../exportationDonneeCSV.html">exportationDonneeCSV module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../regleSouleveDeTerre.html">regleSouleveDeTerre module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../squatDataRetrieve.html">squatDataRetrieve module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../traitementVideo.html">traitementVideo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterConfig.html">tkinterConfig module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterObjects.html">tkinterObjects module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterOutputData.html">tkinterOutputData module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../trouverArticulationYolo.html">trouverArticulationYolo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils.html">utils module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Code du module</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Bream Team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

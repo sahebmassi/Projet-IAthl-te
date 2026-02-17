@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+
+<html lang="fr" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>exportationDonneeCSV &#8212; Documentation ProjetIA_m1_s2 1.0</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=7a28dfa3"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/translations.js?v=e6b791cb"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Recherche" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Code source de exportationDonneeCSV</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">regleDeveloppeCouche</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">regleSouleveDeTerre</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span> 
+<span class="kn">from</span><span class="w"> </span><span class="nn">squatDataRetrieve</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="n">indice</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="configVarChemin">
+<a class="viewcode-back" href="../exportationDonneeCSV.html#exportationDonneeCSV.configVarChemin">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">configVarChemin</span><span class="p">(</span><span class="n">mouvement</span> <span class="p">:</span> <span class="n">IndiceMouvement</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parcours le fichier configExportationCSV pour récupérer la bonne valeur pour la construction du chemin d&#39;enregistrement.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        mouvement (IndiceMouvement): Mouvement effectué.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Retourne la valeur nécessaire pour la structuration du chemin.&quot;&quot;&quot;</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;configExportationCSV.txt&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; : &quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">mouvement</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="k">return</span> <span class="kc">None</span>  <span class="c1"># Retourne None si l&#39;index n&#39;est pas trouvé</span></div>
+
+
+<div class="viewcode-block" id="incrementerIndice">
+<a class="viewcode-back" href="../exportationDonneeCSV.html#exportationDonneeCSV.incrementerIndice">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">incrementerIndice</span><span class="p">(</span><span class="n">mouvement</span> <span class="p">:</span> <span class="n">IndiceMouvement</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Incrémente l&#39;indice du mouvement dans le fichier configExportationCSV.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        mouvement (IndiceMouvement): Mouvement effectué.&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">indice</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;configExportationCSV.txt&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+    
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">)</span>  <span class="c1"># Séparer le commentaire</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot; : &quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">mouvement</span><span class="p">):</span>
+                <span class="n">new_value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span>  
+                <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> : </span><span class="si">{</span><span class="n">new_value</span><span class="si">}</span><span class="s2"> #&quot;</span> <span class="o">+</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">file</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+    <span class="n">indice</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="structurationChemin">
+<a class="viewcode-back" href="../exportationDonneeCSV.html#exportationDonneeCSV.structurationChemin">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">structurationChemin</span><span class="p">(</span><span class="n">pathname</span> <span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">mouvement</span> <span class="p">:</span> <span class="n">IndiceMouvement</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Créer le chemin pour savegarder le fichier en fonction du mouvement effectué.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        filename (str): Nom du fichier.</span>
+<span class="sd">        mouvement (IndiceMouvement): Mouvement effectué.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple: Retourne le chemin ainsi que si le fichier doit être créer ou non.&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">indice</span>
+    <span class="n">chemin</span><span class="p">,</span> <span class="n">creation</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">indice</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">var</span> <span class="o">=</span> <span class="n">indice</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">indice</span><span class="p">,</span> <span class="n">var</span> <span class="o">=</span> <span class="n">configVarChemin</span><span class="p">(</span><span class="n">mouvement</span><span class="p">),</span> <span class="n">indice</span>
+    <span class="k">if</span> <span class="n">var</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">mouvement</span> <span class="o">==</span> <span class="n">IndiceMouvement</span><span class="o">.</span><span class="n">SQUAT</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="n">chemin</span> <span class="o">=</span> <span class="n">pathname</span> <span class="o">+</span> <span class="s2">&quot;/SQUAT&quot;</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">chemin</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">chemin</span> <span class="o">+=</span> <span class="s2">&quot;/squat&quot;</span> <span class="o">+</span> <span class="n">var</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
+        <span class="k">elif</span> <span class="n">mouvement</span> <span class="o">==</span> <span class="n">IndiceMouvement</span><span class="o">.</span><span class="n">DEADLIFT</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="n">chemin</span> <span class="o">=</span> <span class="n">pathname</span> <span class="o">+</span> <span class="s2">&quot;/DEADLIFT&quot;</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">chemin</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">chemin</span> <span class="o">+=</span> <span class="s2">&quot;/deadlift&quot;</span> <span class="o">+</span> <span class="n">var</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
+        <span class="k">elif</span> <span class="n">mouvement</span> <span class="o">==</span> <span class="n">IndiceMouvement</span><span class="o">.</span><span class="n">BENCH</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+            <span class="n">chemin</span> <span class="o">=</span> <span class="n">pathname</span> <span class="o">+</span> <span class="s2">&quot;/BENCH&quot;</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">chemin</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">chemin</span> <span class="o">+=</span> <span class="s2">&quot;/bench&quot;</span> <span class="o">+</span> <span class="n">var</span> <span class="o">+</span> <span class="s2">&quot;.csv&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Mouvement inconnu : Impossibe d&#39;exporter les données en csv&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Erreur lors de la récupération de l&#39;indice&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">chemin</span><span class="p">):</span>
+        <span class="n">creation</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">creation</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="n">chemin</span><span class="p">,</span> <span class="n">creation</span></div>
+
+
+<div class="viewcode-block" id="recupDataSquat">
+<a class="viewcode-back" href="../exportationDonneeCSV.html#exportationDonneeCSV.recupDataSquat">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">recupDataSquat</span><span class="p">(</span><span class="n">touteCoordonnee</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Créer la structre pour les données de squat.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        touteCoordonnee (list): Regroupe toutes les coordonnées depuis le début de la vidéo.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Chaîne contenant les données.&quot;&quot;&quot;</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">traitementSquat</span><span class="p">(</span><span class="n">touteCoordonnee</span><span class="p">)</span> 
+    <span class="n">dataAngle</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">7</span><span class="p">:</span>
+        <span class="n">dataFichier</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;Epaule gauche :&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span>
+            <span class="s2">&quot;Epaule droite :&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="mi">4</span><span class="p">]],</span>
+            <span class="s2">&quot;Hanche gauche :&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span>
+            <span class="s2">&quot;Hanche droite :&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="mi">5</span><span class="p">]],</span>
+            <span class="s2">&quot;Genoux gauche :&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">]],</span>
+            <span class="s2">&quot;Genoux droit :&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="mi">6</span><span class="p">]],</span>
+            <span class="s2">&quot;Talons gauche :&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="mi">3</span><span class="p">]],</span>
+            <span class="s2">&quot;Angle gauche :&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">dataAngle</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span>
+            <span class="s2">&quot;Angle droit :&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">dataAngle</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Les données de l&#39;articulation sont incomplètes.&quot;</span><span class="p">)</span>
+        <span class="n">dataFichier</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">return</span> <span class="n">dataFichier</span></div>
+
+
+<div class="viewcode-block" id="recupDataDeadlift">
+<a class="viewcode-back" href="../exportationDonneeCSV.html#exportationDonneeCSV.recupDataDeadlift">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">recupDataDeadlift</span><span class="p">(</span><span class="n">touteCoordonnee</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Créer la structre pour les données de deadlift.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        touteCoordonnee (list): Regroupe toutes les coordonnées depuis le début de la vidéo.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Chaîne contenant les données.&quot;&quot;&quot;</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">souleverDeTerreValue</span><span class="p">(</span><span class="n">touteCoordonnee</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">dataFichier</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;Angle genoux gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]],</span>
+        <span class="s2">&quot;Angle genoux droit :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]],</span>
+        <span class="s2">&quot;Epaule gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]],</span>
+        <span class="s2">&quot;Epaule droite :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]],</span>
+        <span class="s2">&quot;Hanche gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">3</span><span class="p">]],</span>
+        <span class="s2">&quot;Hanche droite :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">]],</span>
+        <span class="s2">&quot;Point gauche barre :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">]],</span>
+        <span class="s2">&quot;Point droit barre :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">]],</span>
+        <span class="s2">&quot;Poignet droit :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="mi">3</span><span class="p">]],</span>
+        <span class="s2">&quot;Poignet gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="mi">2</span><span class="p">]],</span>
+        <span class="s2">&quot;Talon gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">6</span><span class="p">][</span><span class="mi">1</span><span class="p">]],</span>
+        <span class="s2">&quot;Talong droit :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">6</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">dataFichier</span></div>
+
+
+<div class="viewcode-block" id="recupDataBench">
+<a class="viewcode-back" href="../exportationDonneeCSV.html#exportationDonneeCSV.recupDataBench">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">recupDataBench</span><span class="p">(</span><span class="n">touteCoordonnee</span> <span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Créer la structre pour les données de bench.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        touteCoordonnee (list): Regroupe toutes les coordonnées depuis le début de la vidéo.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Chaîne contenant les données.&quot;&quot;&quot;</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">developpeCoucheCoord</span><span class="p">(</span><span class="n">touteCoordonnee</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">pointGauche</span><span class="p">,</span> <span class="n">pointDroit</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">dataFichier</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;Angle Tête :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span>
+        <span class="s2">&quot;Epaule gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]],</span>
+        <span class="s2">&quot;Epaule droite :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]],</span>
+        <span class="s2">&quot;Fessier gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">3</span><span class="p">]],</span>
+        <span class="s2">&quot;Fessier droit :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">]],</span>
+        <span class="s2">&quot;Talon gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">1</span><span class="p">]],</span>
+        <span class="s2">&quot;Talon droit :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">][</span><span class="mi">0</span><span class="p">]],</span>
+        <span class="s2">&quot;Point gauche barre :&quot;</span><span class="p">:[</span><span class="n">pointGauche</span><span class="p">],</span>
+        <span class="s2">&quot;Point droit barre :&quot;</span><span class="p">:[</span><span class="n">pointDroit</span><span class="p">],</span>
+        <span class="s2">&quot;Coude gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="mi">3</span><span class="p">]],</span>
+        <span class="s2">&quot;Coude droit :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="mi">4</span><span class="p">]],</span>
+        <span class="s2">&quot;Hanche gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="mi">5</span><span class="p">]],</span>
+        <span class="s2">&quot;Hanche gauche :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="mi">6</span><span class="p">]],</span>
+        <span class="s2">&quot;Poitrine :&quot;</span><span class="p">:[</span><span class="n">data</span><span class="p">[</span><span class="mi">5</span><span class="p">][</span><span class="mi">7</span><span class="p">]],</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">dataFichier</span></div>
+
+
+<div class="viewcode-block" id="structurationData">
+<a class="viewcode-back" href="../exportationDonneeCSV.html#exportationDonneeCSV.structurationData">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">structurationData</span><span class="p">(</span><span class="n">touteCoordonnee</span> <span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">mouvement</span> <span class="p">:</span> <span class="n">IndiceMouvement</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Créer la structre pour l&#39;exportation des données en csv en fonction du mouvement.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        touteCoordonnee (list): Regroupe toutes les coordonnées depuis le début de la vidéo.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Chaîne contenant les données.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">mouvement</span> <span class="o">==</span> <span class="n">IndiceMouvement</span><span class="o">.</span><span class="n">SQUAT</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+        <span class="n">dataFichier</span> <span class="o">=</span> <span class="n">recupDataSquat</span><span class="p">(</span><span class="n">touteCoordonnee</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">mouvement</span> <span class="o">==</span> <span class="n">IndiceMouvement</span><span class="o">.</span><span class="n">DEADLIFT</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+        <span class="n">dataFichier</span> <span class="o">=</span> <span class="n">recupDataDeadlift</span><span class="p">(</span><span class="n">touteCoordonnee</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">mouvement</span> <span class="o">==</span> <span class="n">IndiceMouvement</span><span class="o">.</span><span class="n">BENCH</span><span class="o">.</span><span class="n">value</span><span class="p">:</span>
+        <span class="n">dataFichier</span> <span class="o">=</span> <span class="n">recupDataBench</span><span class="p">(</span><span class="n">touteCoordonnee</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Mouvement inconnu : Impossibe d&#39;exporter les données en csv&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{}</span>
+    <span class="k">return</span> <span class="n">dataFichier</span></div>
+
+
+<div class="viewcode-block" id="exportationCSV">
+<a class="viewcode-back" href="../exportationDonneeCSV.html#exportationDonneeCSV.exportationCSV">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">exportationCSV</span><span class="p">(</span><span class="n">touteCoordonnee</span> <span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">pathname</span> <span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">mouvement</span> <span class="p">:</span> <span class="n">IndiceMouvement</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Permet d&#39;exporter les données d&#39;une frame dans un fichier csv en focntion du mouvement.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        touteCoordonnee (list): Regroupe toutes les coordonnées depuis le début de la vidéo.</span>
+<span class="sd">        pathname (str) : Chemin sélectionné</span>
+<span class="sd">        mouvement (IndiceMouvement) : Mouvement effectué&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">touteCoordonnee</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="p">[]</span> <span class="ow">or</span> <span class="n">touteCoordonnee</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="p">[]:</span>
+        <span class="n">chemin</span><span class="p">,</span> <span class="n">creation</span> <span class="o">=</span> <span class="n">structurationChemin</span><span class="p">(</span><span class="n">pathname</span><span class="p">,</span> <span class="n">mouvement</span><span class="p">)</span> <span class="c1"># chemin et (True s&#39;il faut creer, False si on ajoute) </span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">structurationData</span><span class="p">(</span><span class="n">touteCoordonnee</span><span class="p">,</span> <span class="n">mouvement</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">chemin</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">creation</span> <span class="ow">and</span> <span class="n">data</span> <span class="o">!=</span> <span class="p">{}:</span>
+                <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">chemin</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">creation</span> <span class="ow">and</span> <span class="n">data</span> <span class="o">!=</span> <span class="p">{}:</span>
+                <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">chemin</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Impossible d&#39;enregistrer les coordonées pour cette frame&quot;</span><span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProjetIA_m1_s2</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contenu</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../avoirVideo.html">avoirVideo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../codeS3.html">codeS3 module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controleQualitePython.html">controleQualitePython module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hardwareInfo.html">hardwareInfo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../multiThreading.html">multiThreading module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../onnxOptimiser.html">onnxOptimiser module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../regleDeveloppeCouche.html">regleDeveloppeCouche module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../GUI.html">GUI module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../enumIndice.html">enumIndice module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../exportationDonneeCSV.html">exportationDonneeCSV module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../regleSouleveDeTerre.html">regleSouleveDeTerre module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../squatDataRetrieve.html">squatDataRetrieve module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../traitementVideo.html">traitementVideo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterConfig.html">tkinterConfig module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterObjects.html">tkinterObjects module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterOutputData.html">tkinterOutputData module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../trouverArticulationYolo.html">trouverArticulationYolo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils.html">utils module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Code du module</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Bream Team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

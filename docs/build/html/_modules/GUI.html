@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html lang="fr" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GUI &#8212; Documentation ProjetIA_m1_s2 1.0</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=12dfc556" />
+    <script src="../_static/documentation_options.js?v=7a28dfa3"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/translations.js?v=e6b791cb"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Recherche" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Code source de GUI</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">tkinterObjects</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">multiThreading</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tkinterOutputData</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">avoirVideo</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+
+
+<div class="viewcode-block" id="creationFenetreChoix">
+<a class="viewcode-back" href="../GUI.html#GUI.creationFenetreChoix">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">creationFenetreChoix</span><span class="p">(</span><span class="n">nbArbitre</span> <span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">choixTrouverMateriel</span> <span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Créer la fenêtre pour choisir les paramètres de chaque arbitre</span>
+<span class="sd">    Args:</span>
+<span class="sd">        nbArbitre (int): le nombre d&#39;arbitre</span>
+<span class="sd">        choixTrouverMateriel (str): le matériel à utiliser&quot;&quot;&quot;</span>
+    <span class="n">fenetreChoix</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Tk</span><span class="p">()</span>
+    <span class="n">fenetreChoix</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Configuration des arbitres&quot;</span><span class="p">)</span>
+    <span class="n">fenetreChoix</span><span class="o">.</span><span class="n">geometry</span><span class="p">(</span><span class="s2">&quot;1000x900&quot;</span><span class="p">)</span>
+    <span class="n">scrollable_frame</span> <span class="o">=</span> <span class="n">creationScrollableFrame</span><span class="p">(</span><span class="n">fenetreChoix</span><span class="p">)</span>
+    <span class="n">choices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbArbitre</span><span class="p">):</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Frame</span><span class="p">(</span><span class="n">scrollable_frame</span><span class="p">,</span> <span class="n">padx</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">pady</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="n">frame</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">fill</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">padx</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">pady</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        <span class="n">choixTraitementVideo</span> <span class="o">=</span> <span class="n">choixMenuDeroulant</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Choix du traitement vidéo (arbitre </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">):&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">multipleChoixTraitementVideo</span><span class="p">,</span> <span class="n">informationChoixTraitementVideo</span><span class="p">)</span>
+        
+        <span class="n">tk</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Enregistrer les données dans un fichier ? (arbitre </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">) :&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">sticky</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        <span class="n">boolEnregistrementJson</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">StringVar</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;Non&quot;</span><span class="p">)</span>
+        <span class="n">boutonOuiEnregistrementJson</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Radiobutton</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Oui&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="n">boolEnregistrementJson</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;Oui&quot;</span><span class="p">)</span>
+        <span class="n">boutonNonEnregistrementJson</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Radiobutton</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Non&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="n">boolEnregistrementJson</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;Non&quot;</span><span class="p">)</span>
+        <span class="n">boutonOuiEnregistrementJson</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">sticky</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        <span class="n">boutonNonEnregistrementJson</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">sticky</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        <span class="n">enregistrementJson</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Text</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="s2">&quot;disabled&quot;</span><span class="p">)</span>
+        <span class="n">enregistrementJson</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">columnspan</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">pady</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+        
+        <span class="n">choixTrouverArticulation</span> <span class="o">=</span> <span class="n">choixMenuDeroulant</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Choix pour trouver les articulations (arbitre </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">):&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">multipleChoixTrouverArticulation</span><span class="p">,</span> <span class="n">informationChoixTrouverArticulation</span><span class="p">)</span>        
+        
+        <span class="n">tk</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Path de la vidéo (arbitre </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">):&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">sticky</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        <span class="n">videoPath</span> <span class="o">=</span> <span class="n">ttk</span><span class="o">.</span><span class="n">Combobox</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="n">multipleChoixCamera</span><span class="p">,</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">)</span>
+        <span class="n">videoPath</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">tabChoixCamera</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">videoPath</span><span class="p">)</span>
+        
+        <span class="n">parcourirFichier</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Parcourir&quot;</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="k">lambda</span> <span class="n">e</span><span class="o">=</span><span class="n">videoPath</span><span class="p">:</span> <span class="n">choisirFichierDossier</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="n">parcourirFichier</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;?&quot;</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">afficheInformation</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">informationPathVideo</span><span class="p">))</span>
+        <span class="n">info</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        
+        <span class="n">tk</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Enregistrer la vidéo avant le traitement ? (arbitre </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">):&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">sticky</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        <span class="n">boolEnregistrementVideoSansTraitement</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">StringVar</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;Non&quot;</span><span class="p">)</span>
+        <span class="n">boutonOuiEnregistrementVideoSansTraitement</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Radiobutton</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Oui&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="n">boolEnregistrementVideoSansTraitement</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;Oui&quot;</span><span class="p">)</span>
+        <span class="n">boutonNonEnregistrementVideoSansTraitement</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Radiobutton</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Non&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="n">boolEnregistrementVideoSansTraitement</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;Non&quot;</span><span class="p">)</span>
+        <span class="n">boutonOuiEnregistrementVideoSansTraitement</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">sticky</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        <span class="n">boutonNonEnregistrementVideoSansTraitement</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">sticky</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        
+        <span class="n">enregistrementVideoSansTraitement</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Text</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="s2">&quot;disabled&quot;</span><span class="p">)</span>
+        <span class="n">enregistrementVideoSansTraitement</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">columnspan</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">pady</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span> 
+
+        <span class="n">tk</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Enregistrer la vidéo après le traitement ? (arbitre </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">):&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">sticky</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        <span class="n">boolEnregistrementVideoAvecTraitement</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">StringVar</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">&quot;Non&quot;</span><span class="p">)</span>
+        <span class="n">boutonOuiEnregistrementVideoAvecTraitement</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Radiobutton</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Oui&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="n">boolEnregistrementVideoAvecTraitement</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;Oui&quot;</span><span class="p">)</span>
+        <span class="n">boutonNonEnregistrementVideoAvecTraitement</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Radiobutton</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Non&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="n">boolEnregistrementVideoAvecTraitement</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="s2">&quot;Non&quot;</span><span class="p">)</span>
+        <span class="n">boutonOuiEnregistrementVideoAvecTraitement</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">sticky</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        <span class="n">boutonNonEnregistrementVideoAvecTraitement</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">sticky</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        
+        <span class="n">enregistrementVideoAvecTraitement</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Text</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">state</span><span class="o">=</span><span class="s2">&quot;disabled&quot;</span><span class="p">)</span>
+        <span class="n">enregistrementVideoAvecTraitement</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">columnspan</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">pady</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span> 
+        
+        <span class="k">def</span><span class="w"> </span><span class="nf">choixEnregistrementVideoAvecTraitement</span><span class="p">():</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Vérifie l&#39;état des boutons pour savoir si on peut écrire un path</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">choices</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">6</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Oui&quot;</span><span class="p">:</span>
+                    <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;disabled&quot;</span><span class="p">)</span>
+                    <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">)</span>
+        
+        <span class="k">def</span><span class="w"> </span><span class="nf">choixEnregistrementVideoSansTraitement</span><span class="p">():</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Vérifie l&#39;état des boutons pour savoir si on peut écrire un path</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">choices</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Oui&quot;</span><span class="p">:</span>
+                    <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;disabled&quot;</span><span class="p">)</span>
+                    <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">choixEnregistrementJson</span><span class="p">():</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Vérifie l&#39;état des boutons pour savoir si on peut écrire un path</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">choices</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">8</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Oui&quot;</span><span class="p">:</span>
+                    <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">state</span><span class="o">=</span><span class="s2">&quot;disabled&quot;</span><span class="p">)</span>
+                    <span class="n">choices</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">5</span><span class="p">]</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">)</span>
+        
+        <span class="n">boutonOuiEnregistrementVideoAvecTraitement</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">choixEnregistrementVideoAvecTraitement</span><span class="p">)</span>
+        <span class="n">boutonNonEnregistrementVideoAvecTraitement</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">choixEnregistrementVideoAvecTraitement</span><span class="p">)</span>
+        <span class="n">boutonOuiEnregistrementVideoSansTraitement</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">choixEnregistrementVideoSansTraitement</span><span class="p">)</span>
+        <span class="n">boutonNonEnregistrementVideoSansTraitement</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">choixEnregistrementVideoSansTraitement</span><span class="p">)</span>
+        <span class="n">boutonOuiEnregistrementJson</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">choixEnregistrementJson</span><span class="p">)</span>
+        <span class="n">boutonNonEnregistrementJson</span><span class="o">.</span><span class="n">config</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">choixEnregistrementJson</span><span class="p">)</span>
+        <span class="n">choices</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">choixTraitementVideo</span><span class="p">,</span> <span class="n">choixTrouverArticulation</span><span class="p">,</span> <span class="n">videoPath</span><span class="p">,</span> <span class="n">boolEnregistrementVideoSansTraitement</span><span class="p">,</span> <span class="n">enregistrementVideoSansTraitement</span><span class="p">,</span> <span class="n">enregistrementJson</span><span class="p">,</span> <span class="n">boolEnregistrementVideoAvecTraitement</span><span class="p">,</span> <span class="n">enregistrementVideoAvecTraitement</span><span class="p">,</span> <span class="n">boolEnregistrementJson</span><span class="p">))</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_choices</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;action faites quand le bouton valider est appuyer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">choixTraitementVideo</span><span class="p">,</span> <span class="n">choixTrouverArticulation</span><span class="p">,</span> <span class="n">videoPath</span><span class="p">,</span> <span class="n">boolEnregistrementVideoSansTraitement</span><span class="p">,</span> <span class="n">enregistrementVideoSansTraitement</span><span class="p">,</span> <span class="n">enregistrementJson</span><span class="p">,</span> <span class="n">boolEnregistrementVideoAvecTraitement</span><span class="p">,</span> <span class="n">enregistrementVideoAvecTraitement</span><span class="p">,</span> <span class="n">boolEnregistrementJson</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">choices</span><span class="p">):</span>
+            <span class="n">textEnregistrementVideoSansTraitement</span> <span class="o">=</span> <span class="n">enregistrementVideoSansTraitement</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">boolEnregistrementVideoSansTraitement</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Oui&quot;</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">textEnregistrementVideoAvecTraitement</span> <span class="o">=</span> <span class="n">enregistrementVideoAvecTraitement</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">boolEnregistrementVideoAvecTraitement</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Oui&quot;</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">textEnregistrementJson</span> <span class="o">=</span> <span class="n">enregistrementJson</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">boolEnregistrementJson</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Oui&quot;</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+            
+            <span class="n">materiel</span> <span class="o">=</span> <span class="n">choixMaterielOutput</span><span class="p">(</span><span class="n">choixTrouverMateriel</span><span class="p">)</span>
+            <span class="n">traitementVideo</span> <span class="o">=</span> <span class="n">choixTraitementVideoOutput</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">choixTraitementVideo</span><span class="o">.</span><span class="n">get</span><span class="p">()))</span>
+            <span class="n">trouverArticulation</span> <span class="o">=</span> <span class="n">choixTrouverArticulationOutput</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">choixTrouverArticulation</span><span class="o">.</span><span class="n">get</span><span class="p">()))</span>
+            <span class="n">enregistrementVideoAvant</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">boolEnregistrementVideoSansTraitement</span><span class="o">.</span><span class="n">get</span><span class="p">()</span><span class="o">==</span><span class="s2">&quot;Non&quot;</span> <span class="k">else</span> <span class="n">textEnregistrementVideoSansTraitement</span>
+            <span class="n">enregistrementVideoApres</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">boolEnregistrementVideoAvecTraitement</span><span class="o">.</span><span class="n">get</span><span class="p">()</span><span class="o">==</span><span class="s2">&quot;Non&quot;</span> <span class="k">else</span> <span class="n">textEnregistrementVideoAvecTraitement</span>
+            <span class="n">enregistrementJson</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">boolEnregistrementJson</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Non&quot;</span> <span class="k">else</span> <span class="n">textEnregistrementJson</span>
+            <span class="n">pathVideoOutput</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">videoPath</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">pathVideoOutput</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">verifierInformation</span><span class="p">(</span><span class="n">traitementVideo</span><span class="p">,</span> <span class="n">trouverArticulation</span><span class="p">,</span> <span class="n">enregistrementVideoAvant</span><span class="p">,</span> <span class="n">enregistrementVideoApres</span><span class="p">,</span> <span class="n">enregistrementJson</span><span class="p">):</span>
+                    <span class="n">nbVid</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="k">for</span> <span class="n">fichier</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">pathVideoOutput</span><span class="p">):</span>
+                        <span class="k">if</span> <span class="n">estVideo</span><span class="p">(</span><span class="n">fichier</span><span class="p">):</span>
+                            <span class="n">enregistrementVideoApresTemp</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">nbVid</span><span class="p">)</span> <span class="k">if</span> <span class="n">enregistrementVideoApres</span> <span class="o">!=</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+                            <span class="n">enregistrementVideoAvantTemp</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">nbVid</span><span class="p">)</span> <span class="k">if</span> <span class="n">enregistrementVideoAvant</span> <span class="o">!=</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+                            <span class="n">nbVid</span> <span class="o">+=</span> <span class="mi">1</span>
+                            <span class="c1"># captureVideo(mediaPipe=False, yolo = [&quot;yolov8n-pose.pt&quot;,&quot;./trained_models/best.pt&quot;], trouverArticulation=trouverArticulation, videoPath=pathVideoOutput + &quot;/&quot; + fichier, enregistrerVideoAvant=enregistrementVideoAvantTemp, traitementVideo=traitementVideo, choixMateriel=materiel, enregistrementVideoApres=enregistrementVideoApresTemp, enregistrementJson=enregistrementJson)</span>
+                            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">([</span>
+                                <span class="kc">False</span><span class="p">,</span>
+                                <span class="p">[</span><span class="s2">&quot;yolov8n-pose.pt&quot;</span><span class="p">,</span><span class="s2">&quot;best.pt&quot;</span><span class="p">],</span>
+                                <span class="n">trouverArticulation</span><span class="p">,</span>
+                                <span class="n">pathVideoOutput</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">fichier</span><span class="p">,</span>
+                                <span class="n">enregistrementVideoAvantTemp</span><span class="p">,</span>
+                                <span class="n">traitementVideo</span><span class="p">,</span>
+                                <span class="n">materiel</span><span class="p">,</span>
+                                <span class="n">enregistrementVideoApresTemp</span><span class="p">,</span>
+                                <span class="n">enregistrementJson</span>
+                            <span class="p">])</span>
+                <span class="k">else</span> <span class="p">:</span>
+                    <span class="k">return</span>
+
+            <span class="k">elif</span> <span class="n">estVideo</span><span class="p">(</span><span class="n">pathVideoOutput</span><span class="p">)</span> <span class="ow">or</span> <span class="n">pathVideoOutput</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">verifierInformation</span><span class="p">(</span><span class="n">traitementVideo</span><span class="p">,</span> <span class="n">trouverArticulation</span><span class="p">,</span> <span class="n">enregistrementVideoAvant</span><span class="p">,</span> <span class="n">enregistrementVideoApres</span><span class="p">,</span> <span class="n">enregistrementJson</span><span class="p">):</span>
+                    <span class="c1"># captureVideo(mediaPipe=False, yolo = [&quot;yolov8n-pose.pt&quot;,&quot;./trained_models/best.pt&quot;], trouverArticulation=trouverArticulation, videoPath=pathVideoOutput, enregistrerVideoAvant=enregistrementVideoAvant, traitementVideo=traitementVideo, choixMateriel=materiel, enregistrementVideoApres=enregistrementVideoApres, enregistrementJson=enregistrementJson)</span>
+                    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">([</span>
+                        <span class="kc">False</span><span class="p">,</span>
+                        <span class="p">[</span><span class="s2">&quot;yolov8n-pose.pt&quot;</span><span class="p">,</span><span class="s2">&quot;best.pt&quot;</span><span class="p">],</span>
+                        <span class="n">trouverArticulation</span><span class="p">,</span>
+                        <span class="n">pathVideoOutput</span><span class="p">,</span>
+                        <span class="n">enregistrementVideoAvant</span><span class="p">,</span>
+                        <span class="n">traitementVideo</span><span class="p">,</span>
+                        <span class="n">materiel</span><span class="p">,</span>
+                        <span class="n">enregistrementVideoApres</span><span class="p">,</span>
+                        <span class="n">enregistrementJson</span>
+                    <span class="p">])</span>
+                <span class="k">else</span> <span class="p">:</span>
+                    <span class="k">return</span>
+
+            <span class="k">else</span> <span class="p">:</span>
+                <span class="n">messagebox</span><span class="o">.</span><span class="n">showerror</span><span class="p">(</span><span class="s2">&quot;Erreur&quot;</span><span class="p">,</span> <span class="s2">&quot;Veuillez entrer un fichier video ou un dossier dans videopath.&quot;</span><span class="p">)</span>
+                <span class="k">return</span>
+        <span class="n">cameraCreator</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;yolov8n-pose.pt&quot;</span><span class="p">,</span><span class="s2">&quot;best.pt&quot;</span><span class="p">])</span>
+    <span class="n">tk</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="n">scrollable_frame</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Valider&quot;</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="n">validate_choices</span><span class="p">)</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">pady</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="n">fenetreChoix</span><span class="o">.</span><span class="n">mainloop</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../GUI.html#GUI.main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Lance la fenêtre de base pour choisir les arbitres</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Tk</span><span class="p">()</span>
+    <span class="n">root</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;Nombre d&#39;arbitre&quot;</span><span class="p">)</span>
+    <span class="n">root</span><span class="o">.</span><span class="n">geometry</span><span class="p">(</span><span class="s2">&quot;600x100&quot;</span><span class="p">)</span>
+    
+    <span class="n">tk</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Combien d&#39;arbitre voulez-vous lancer ?&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">thread_var</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">StringVar</span><span class="p">()</span>
+    
+    <span class="n">entree</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Entry</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">textvariable</span><span class="o">=</span><span class="n">thread_var</span><span class="p">)</span>
+    <span class="n">entree</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    
+    <span class="n">choixTrouverMateriel</span> <span class="o">=</span> <span class="n">choixMenuDeroulant</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Choix pour le matériel utilisé pour le lancement&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">multipleChoixMateriel</span><span class="p">,</span> <span class="n">informationChoixMateriel</span><span class="p">)</span>        
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">thread_var</span><span class="o">.</span><span class="n">get</span><span class="p">())</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+                <span class="n">nbArbitre</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">thread_var</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>
+                <span class="k">if</span> <span class="n">nbArbitre</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">choixTrouverMateriel</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="p">:</span>
+                        <span class="n">messagebox</span><span class="o">.</span><span class="n">showerror</span><span class="p">(</span><span class="s2">&quot;Erreur&quot;</span><span class="p">,</span> <span class="s2">&quot;Veuillez entrer un matéirle valide.&quot;</span><span class="p">)</span>
+                    <span class="k">else</span> <span class="p">:</span>
+                        <span class="n">choixMateriel</span> <span class="o">=</span> <span class="n">choixTrouverMateriel</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+                        <span class="n">root</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span>
+                        <span class="n">creationFenetreChoix</span><span class="p">(</span><span class="n">nbArbitre</span><span class="p">,</span> <span class="n">choixMateriel</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">messagebox</span><span class="o">.</span><span class="n">showerror</span><span class="p">(</span><span class="s2">&quot;Erreur&quot;</span><span class="p">,</span> <span class="s2">&quot;Veuillez entrer un nombre valide d&#39;arbitre.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">messagebox</span><span class="o">.</span><span class="n">showerror</span><span class="p">(</span><span class="s2">&quot;Erreur&quot;</span><span class="p">,</span> <span class="s2">&quot;Veuillez entrer un nombre valide d&#39;arbitre.&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">messagebox</span><span class="o">.</span><span class="n">showerror</span><span class="p">(</span><span class="s2">&quot;Erreur&quot;</span><span class="p">,</span> <span class="s2">&quot;Veuillez entrer un nombre entier.&quot;</span><span class="p">)</span>
+    
+    <span class="n">tk</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;Valider&quot;</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="n">validate</span><span class="p">)</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="n">row</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">column</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    
+    <span class="n">root</span><span class="o">.</span><span class="n">mainloop</span><span class="p">()</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">ProjetIA_m1_s2</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contenu</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../avoirVideo.html">avoirVideo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../controleQualitePython.html">controleQualitePython module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hardwareInfo.html">hardwareInfo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../multiThreading.html">multiThreading module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../onnxOptimiser.html">onnxOptimiser module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../regleDeveloppeCouche.html">regleDeveloppeCouche module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../regleSouleveDeTerre.html">regleSouleveDeTerre module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../squatDataRetrieve.html">squatDataRetrieve module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../traitementVideo.html">traitementVideo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterConfig.html">tkinterConfig module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterObjects.html">tkinterObjects module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tkinterOutputData.html">tkinterOutputData module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../trouverArticulationYolo.html">trouverArticulationYolo module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utils.html">utils module</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Code du module</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Recherche rapide</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, Bream Team.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

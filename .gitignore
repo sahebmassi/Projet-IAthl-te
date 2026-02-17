@@ -1,0 +1,30 @@
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+__pycache__/
+*.pyc
+*.pt
+*.model
+*.weights
+*.onnx
+VIDEOS
+runs/*
+yolo
+.vscode
+runs
+s3Files
+*.mlpackage
