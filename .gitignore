@@ -17,7 +17,6 @@ Temporary Items
 .apdisk
 __pycache__/
 *.pyc
-*.pt
 *.model
 *.weights
 *.onnx
