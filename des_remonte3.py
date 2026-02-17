@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 import math
 from typing import List, Tuple, Optional
 from collections import deque
@@ -11,45 +12,41 @@ from ultralytics import YOLO
 
 
 # ============================================================
-# Paramètres (à tuner) pour détection de "descente non suffisante"
+# 1) PARAMÈTRES À TUNER (DIP pendant la montée) ✅
 # ============================================================
-# MIN_DESC_FRAMES est calibré pour ~60 FPS : on adapte si la vidéo est à 30 FPS etc.
-MIN_DESC_FRAMES_AT_60FPS = 6
-
-# EPS : seuil vitesse par frame pour compter un mouvement vers le bas, en % hipWidth/frame
+K_MIN_DIP_SEC = 0.06
+X_IGNORE_AFTER_ASCENT_SEC = 0.05
+A_MIN_DIP_RATIO_OF_HIPWIDTH = 0.015
 EPS_VEL_RATIO_OF_HIPWIDTH = 0.008
 
-# Lissage (médiane glissante)
 SMOOTH_WIN = 5
-
-# Détection de phase : nb de frames consécutives pour valider descente/remontée
 N_DOWN_FRAMES = 4
 N_UP_FRAMES = 4
-
-# Critère profondeur : angle genou moyen < seuil => profond (approche simple)
-DEPTH_KNEE_ANGLE_THRESH = 90.0  # deg
+MIN_DESC_FRAMES = 10
 
 
 # ============================================================
-# Paramètres fin de remontée (pour stopper l'analyse proprement)
+# 2) PARAMÈTRES À TUNER (FIN de la remontée) ✅
 # ============================================================
 LOCK_ANGLE_DEG = 173.0
 LOCK_HOLD_SEC = 0.12
+
 TOP_BAND_RATIO_OF_HIPWIDTH = 0.035
 TOP_HOLD_SEC = 0.12
+
 END_VEL_RATIO_OF_HIPWIDTH = 0.006
 MIN_ASCENT_BEFORE_END_SEC = 0.25
 
 
 # ============================================================
-# AFFICHAGE : une seule fenêtre (mosaïque) ✅
+# 3) AFFICHAGE (panneau info DANS LA MÊME FENÊTRE) ✅
 # ============================================================
-PANEL_W = 560
-PANEL_BG = (28, 28, 28)  # BGR
+PANEL_W = 520
+PANEL_BG = (28, 28, 28)
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 
-# Squelette YOLO COCO17
+# Squelette COCO 17 (comme ton zip)
 YOLO_COCO17_SKELETON = [
     (0, 1), (0, 2), (1, 3), (2, 4),
     (5, 6), (5, 7), (7, 9), (6, 8), (8, 10),
@@ -57,6 +54,7 @@ YOLO_COCO17_SKELETON = [
     (11, 13), (13, 15), (12, 14), (14, 16),
 ]
 
+# Indices YOLO (COCO17)
 LEFT_HIP, RIGHT_HIP = 11, 12
 LEFT_KNEE, RIGHT_KNEE = 13, 14
 LEFT_ANKLE, RIGHT_ANKLE = 15, 16
@@ -107,7 +105,6 @@ def draw_skeleton(image, keypoints: List[Tuple[float, float]]) -> None:
 def pick_best_person(result) -> Optional[List[Tuple[float, float]]]:
     if result is None or result.keypoints is None or result.keypoints.xy is None:
         return None
-
     kps_xy = result.keypoints.xy
     if len(kps_xy) == 0:
         return None
@@ -155,11 +152,10 @@ def get_midhip_and_hipwidth(kps: List[Tuple[float, float]]) -> Tuple[Optional[fl
         return None, None
 
     mid_y = 0.5 * (yL + yR)
-    hip_width = math.hypot(xL - xR, yL - yR)
-    if hip_width < 1.0:
-        hip_width = None
-
-    return float(mid_y), float(hip_width) if hip_width is not None else None
+    hipw = math.hypot(xL - xR, yL - yR)
+    if hipw < 1.0:
+        hipw = None
+    return float(mid_y), float(hipw) if hipw is not None else None
 
 
 def get_avg_knee_angle(kps: List[Tuple[float, float]]) -> Optional[float]:
@@ -171,37 +167,27 @@ def get_avg_knee_angle(kps: List[Tuple[float, float]]) -> Optional[float]:
     return float(sum(vals) / len(vals))
 
 
-def get_avg_knee_y(kps: List[Tuple[float, float]]) -> Optional[float]:
-    lkx, lky = kps[LEFT_KNEE]
-    rkx, rky = kps[RIGHT_KNEE]
-    if (lkx == 0 and lky == 0) or (rkx == 0 and rky == 0):
-        return None
-    return float(0.5 * (lky + rky))
-
-
 def make_panel(height: int, lines: List[str], title: str = "INFO") -> np.ndarray:
     panel = np.zeros((height, PANEL_W, 3), dtype=np.uint8)
     panel[:] = PANEL_BG
 
-    # tailles auto
-    if height >= 900:
-        scale = 0.70
-    elif height >= 720:
-        scale = 0.62
-    else:
-        scale = 0.55
+    # auto taille police selon la hauteur
+    scale = 0.65 if height >= 720 else 0.55
+    thick = 2
 
     y = 28
     cv2.putText(panel, title, (16, y), FONT, 0.9, (255, 255, 255), 2)
-    y += 18
-    cv2.line(panel, (16, y), (PANEL_W - 16, y), (100, 100, 100), 1)
     y += 26
 
-    line_h = int(26 * (scale / 0.62)) + 12
+    # ligne séparatrice
+    cv2.line(panel, (16, y), (PANEL_W - 16, y), (90, 90, 90), 1)
+    y += 26
+
+    line_h = int(24 * (scale / 0.65)) + 14
     for s in lines:
-        if y > height - 18:
+        if y > height - 16:
             break
-        cv2.putText(panel, s, (16, y), FONT, scale, (235, 235, 235), 2)
+        cv2.putText(panel, s, (16, y), FONT, scale, (230, 230, 230), thick)
         y += line_h
 
     return panel
@@ -234,28 +220,25 @@ def main():
     if fps_video <= 1e-6:
         fps_video = 30.0
 
-    # Adaptations via FPS
-    MIN_DESC_FRAMES_FR = max(2, int(round(MIN_DESC_FRAMES_AT_60FPS * (fps_video / 60.0))))
+    # Conversions temps -> frames
+    K_MIN_DIP_FRAMES = max(2, int(round(K_MIN_DIP_SEC * fps_video)))
+    X_IGNORE_FRAMES = max(0, int(round(X_IGNORE_AFTER_ASCENT_SEC * fps_video)))
     LOCK_HOLD_FRAMES = max(2, int(round(LOCK_HOLD_SEC * fps_video)))
     TOP_HOLD_FRAMES = max(2, int(round(TOP_HOLD_SEC * fps_video)))
     MIN_ASCENT_BEFORE_END_FRAMES = max(0, int(round(MIN_ASCENT_BEFORE_END_SEC * fps_video)))
 
-    # Une seule fenêtre : vidéo + panneau
-    win = "Squat - Profondeur (Video + Dashboard)"
+    # Une seule fenêtre (mosaïque)
+    win = "Squat (Video + Info)"
     cv2.namedWindow(win, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(win, W + PANEL_W, H)
 
+    # Buffers lissage
     hip_y_buf = deque(maxlen=SMOOTH_WIN)
     hipw_buf = deque(maxlen=SMOOTH_WIN)
     knee_buf = deque(maxlen=SMOOTH_WIN)
+
     baseline_buf = deque(maxlen=int(max(10, round(1.0 * fps_video))))
-
-    # logs
-    events = deque(maxlen=10)
-
-    def append_event(frame_i: int, msg: str):
-        t = frame_i / fps_video if frame_i >= 0 else 0.0
-        events.appendleft(f"[{t:5.2f}s] {msg}")
+    baseline_top_y = None
 
     prev_smooth_y = None
 
@@ -269,22 +252,30 @@ def main():
     start_up_frame = None
     end_frame = None
 
-    # bottom tracking (IMPORTANT : on stocke les infos AU BOTTOM)
     max_smooth_y = None
     max_smooth_y_frame = None
-    bottom_knee_angle = None
-    bottom_avg_knee_y = None
 
-    baseline_top_y = None
+    # Dip
+    dip_detected = False
+    dip_start_frame = None
+    dip_end_frame = None
+    dip_amp_px = None
 
-    # verdict profondeur
-    descent_insufficient = False
-    hip_below_knees = None
-    knee_angle_ok = None
-    min_knee_angle = None
+    dip_streak = 0
+    dip_candidate_start = None
+    dip_base_y = None
+    dip_peak_y = None
 
+    # End
     lock_streak = 0
     top_streak = 0
+
+    # “logs” à afficher (au lieu du terminal)
+    events = deque(maxlen=8)
+
+    def log_event(msg: str):
+        t = (max(frame_idx, 0) / fps_video)
+        events.appendleft(f"[{t:5.2f}s] {msg}")
 
     paused = False
 
@@ -295,7 +286,7 @@ def main():
                 break
             frame_idx += 1
 
-            # VIDEO propre (squelette uniquement)
+            # vidéo propre : on dessine squelette mais PAS de textes
             frame_clean = frame.copy()
 
             results = model.predict(source=frame_clean, conf=args.conf, verbose=False, device=args.device)
@@ -316,7 +307,7 @@ def main():
                 if knee is not None:
                     knee_buf.append(knee)
 
-            # valeurs pour dashboard
+            # valeurs courantes
             smooth_y = None
             hipw_med = None
             smooth_knee = None
@@ -325,18 +316,15 @@ def main():
             if len(hip_y_buf) >= max(3, SMOOTH_WIN // 2):
                 smooth_y = float(median(hip_y_buf))
                 hipw_med = float(median(hipw_buf)) if len(hipw_buf) > 0 else 200.0
-                eps_px = EPS_VEL_RATIO_OF_HIPWIDTH * hipw_med
+                smooth_knee = float(median(knee_buf)) if len(knee_buf) > 0 else None
 
+                eps_px = EPS_VEL_RATIO_OF_HIPWIDTH * hipw_med
+                A_px = A_MIN_DIP_RATIO_OF_HIPWIDTH * hipw_med
                 end_vel_eps = END_VEL_RATIO_OF_HIPWIDTH * hipw_med
                 top_band_px = TOP_BAND_RATIO_OF_HIPWIDTH * hipw_med
 
-                smooth_knee = float(median(knee_buf)) if len(knee_buf) > 0 else None
-                if smooth_knee is not None:
-                    if min_knee_angle is None or smooth_knee < min_knee_angle:
-                        min_knee_angle = smooth_knee
-
                 if prev_smooth_y is not None:
-                    vel = smooth_y - prev_smooth_y  # >0 descend / <0 remonte
+                    vel = smooth_y - prev_smooth_y  # >0 descend, <0 remonte
 
                     down_streak = down_streak + 1 if vel > eps_px else 0
                     up_streak = up_streak + 1 if vel < -eps_px else 0
@@ -350,56 +338,29 @@ def main():
                             max_smooth_y = smooth_y
                             max_smooth_y_frame = frame_idx
 
-                            # bottom aux = reset
-                            bottom_knee_angle = smooth_knee
-                            bottom_avg_knee_y = get_avg_knee_y(kps) if kps is not None else None
-
-                            append_event(frame_idx, f"Descente détectée @ frame {start_desc_frame}")
+                            log_event(f"Descente detectee @ frame {start_desc_frame}")
 
                     elif state == "descending":
-                        # Mise à jour du bottom (quand midHipY est le plus bas => Y max)
                         if max_smooth_y is None or smooth_y > max_smooth_y:
                             max_smooth_y = smooth_y
                             max_smooth_y_frame = frame_idx
-                            bottom_knee_angle = smooth_knee
-                            bottom_avg_knee_y = get_avg_knee_y(kps) if kps is not None else None
 
-                        # autoriser remontée seulement après min frames
-                        if start_desc_frame is not None and (frame_idx - start_desc_frame) >= MIN_DESC_FRAMES_FR:
+                        if start_desc_frame is not None and (frame_idx - start_desc_frame) >= MIN_DESC_FRAMES:
                             if up_streak >= N_UP_FRAMES:
                                 state = "ascending"
                                 start_up_frame = frame_idx - N_UP_FRAMES + 1
-                                append_event(frame_idx, f"Début remontée @ frame {start_up_frame} (bottom~{max_smooth_y_frame})")
+                                log_event(f"Debut REMONTEE @ frame {start_up_frame} (bottom~{max_smooth_y_frame})")
 
-                                # ======= Évaluer profondeur AU BOTTOM =======
-                                if max_smooth_y is not None:
-                                    # hip below knees (au bottom)
-                                    if bottom_avg_knee_y is not None:
-                                        hip_below_knees = (max_smooth_y > bottom_avg_knee_y)
-                                    else:
-                                        hip_below_knees = None
+                                dip_streak = 0
+                                dip_candidate_start = None
+                                dip_base_y = None
+                                dip_peak_y = None
 
-                                    # knee angle ok (au bottom)
-                                    if bottom_knee_angle is not None:
-                                        knee_angle_ok = (bottom_knee_angle < DEPTH_KNEE_ANGLE_THRESH)
-                                    else:
-                                        knee_angle_ok = None
-
-                                    # décision : profond si (hipBelow == True) OU (kneeAngleOk == True)
-                                    ok_depth = (hip_below_knees is True) or (knee_angle_ok is True)
-                                    descent_insufficient = not ok_depth
-
-                                    if descent_insufficient:
-                                        append_event(frame_idx, f"FAUTE: descente non suffisante (hipBelow={hip_below_knees}, kneeOk={knee_angle_ok}, angleBottom={bottom_knee_angle})")
-                                    else:
-                                        append_event(frame_idx, f"OK: descente suffisante (hipBelow={hip_below_knees}, kneeOk={knee_angle_ok}, angleBottom={bottom_knee_angle})")
-
-                                # reset end tracking
                                 lock_streak = 0
                                 top_streak = 0
 
                     elif state == "ascending":
-                        # FIN de remontée (stabilité)
+                        # FIN remontée
                         if start_up_frame is not None and (frame_idx - start_up_frame) >= MIN_ASCENT_BEFORE_END_FRAMES:
                             stable = abs(vel) < end_vel_eps
 
@@ -417,51 +378,64 @@ def main():
                                 state = "done"
                                 end_frame = frame_idx
                                 reason = "LOCK" if lock_streak >= LOCK_HOLD_FRAMES else "TOP"
-                                append_event(frame_idx, f"Fin remontée ({reason}) @ frame {end_frame}")
+                                log_event(f"FIN remontee ({reason}) @ frame {end_frame}")
+
+                        # DIP (uniquement si pas done)
+                        if state == "ascending" and start_up_frame is not None and not dip_detected:
+                            if (frame_idx - start_up_frame) >= X_IGNORE_FRAMES:
+                                if vel > eps_px:
+                                    if dip_candidate_start is None:
+                                        dip_candidate_start = frame_idx
+                                        dip_base_y = prev_smooth_y
+                                        dip_peak_y = smooth_y
+                                    dip_streak += 1
+                                    dip_peak_y = max(dip_peak_y, smooth_y)
+                                else:
+                                    if dip_candidate_start is not None:
+                                        amp = (dip_peak_y - dip_base_y) if (dip_peak_y is not None and dip_base_y is not None) else 0.0
+                                        if dip_streak >= K_MIN_DIP_FRAMES and amp >= A_px:
+                                            dip_detected = True
+                                            dip_start_frame = dip_candidate_start
+                                            dip_end_frame = frame_idx
+                                            dip_amp_px = amp
+                                            log_event(f"FAUTE: redescente pendant la phase de remontee @ frame {dip_start_frame} amp~{amp:.1f}px")
+
+                                        dip_streak = 0
+                                        dip_candidate_start = None
+                                        dip_base_y = None
+                                        dip_peak_y = None
 
                 prev_smooth_y = smooth_y
 
-            # ===================== DASHBOARD (à droite) =====================
+            # ----- Construire le panneau info (même fenêtre) -----
             t_sec = frame_idx / fps_video
-
             hipw_txt = f"{hipw_med:.1f}px" if hipw_med is not None else "-"
-            vel_txt = f"{vel:+.2f}px/frame" if vel is not None else "-"
+            vel_txt = f"{vel:+.2f}px/f" if vel is not None else "-"
             knee_txt = f"{smooth_knee:.1f} deg" if smooth_knee is not None else "-"
-            min_knee_txt = f"{min_knee_angle:.1f} deg" if min_knee_angle is not None else "-"
-            bottom_knee_txt = f"{bottom_knee_angle:.1f} deg" if bottom_knee_angle is not None else "-"
-
-            verdict = "—"
-            if state in ("ascending", "done") and (start_up_frame is not None):
-                verdict = "FAUTE: descente non suffisante" if descent_insufficient else "OK: descente suffisante"
 
             lines = [
                 f"FPS video: {fps_video:.2f}",
                 f"Frame: {frame_idx}   Time: {t_sec:.2f}s",
                 f"State: {state}",
                 "",
-                f"Desc start: {start_desc_frame if start_desc_frame is not None else '-'}",
                 f"Ascent start: {start_up_frame if start_up_frame is not None else '-'}",
-                f"Ascent end: {end_frame if end_frame is not None else '-'}",
+                f"Ascent end:   {end_frame if end_frame is not None else '-'}",
+                f"Knee angle:   {knee_txt}",
+                f"HipWidth:     {hipw_txt}",
+                f"Vel (hipY):   {vel_txt}",
                 "",
-                f"HipWidth: {hipw_txt}",
-                f"Vel (hipY): {vel_txt}",
-                f"Knee angle: {knee_txt}",
-                f"Min knee: {min_knee_txt}",
-                "",
-                "BOTTOM (reference):",
-                f"  bottom frame: {max_smooth_y_frame if max_smooth_y_frame is not None else '-'}",
-                f"  knee bottom:  {bottom_knee_txt}",
-                f"  hipBelowKnee: {hip_below_knees if hip_below_knees is not None else '-'}",
-                f"  kneeOk(<{DEPTH_KNEE_ANGLE_THRESH:.0f}): {knee_angle_ok if knee_angle_ok is not None else '-'}",
-                "",
-                f"VERDICT: {verdict}",
+                "redescente pendant la remontee:",
+                f"  detected: {'YES' if dip_detected else 'NO'}",
+                f"  start: {dip_start_frame if dip_start_frame is not None else '-'}",
+                f"  amp:   {f'{dip_amp_px:.1f}px' if dip_amp_px is not None else '-'}",
                 "",
                 "EVENTS:",
             ]
             lines.extend(list(events))
 
-            panel = make_panel(H, lines, title="PROFONDEUR SQUAT - DASHBOARD")
+            panel = make_panel(H, lines, title="SQUAT DASHBOARD")
 
+            # mosaïque : vidéo à gauche + panel à droite
             combo = np.hstack([frame_clean, panel])
             cv2.imshow(win, combo)
 
@@ -470,7 +444,10 @@ def main():
             break
         if key == ord(" "):
             paused = not paused
+            log_event("Pause ON" if paused else "Pause OFF")
+
         if key == ord("r"):
+            # reset + rewind
             state = "idle"
             frame_idx = -1
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -479,8 +456,9 @@ def main():
             hipw_buf.clear()
             knee_buf.clear()
             baseline_buf.clear()
-
+            baseline_top_y = None
             prev_smooth_y = None
+
             down_streak = 0
             up_streak = 0
 
@@ -490,21 +468,21 @@ def main():
 
             max_smooth_y = None
             max_smooth_y_frame = None
-            bottom_knee_angle = None
-            bottom_avg_knee_y = None
 
-            baseline_top_y = None
-
-            descent_insufficient = False
-            hip_below_knees = None
-            knee_angle_ok = None
-            min_knee_angle = None
+            dip_detected = False
+            dip_start_frame = None
+            dip_end_frame = None
+            dip_amp_px = None
+            dip_streak = 0
+            dip_candidate_start = None
+            dip_base_y = None
+            dip_peak_y = None
 
             lock_streak = 0
             top_streak = 0
 
             events.clear()
-            events.appendleft("[RESET]")
+            log_event("RESET + retour début")
 
     cap.release()
     cv2.destroyAllWindows()
