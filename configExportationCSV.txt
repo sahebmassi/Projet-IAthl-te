@@ -1,3 +1,0 @@
-0 : 79 # squat
-1 : 17 # deadlift
-2 : 14 # bench

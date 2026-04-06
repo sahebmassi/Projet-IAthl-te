@@ -1,5 +1,0 @@
-ms-python.python
-ms-python.isort
-njpwerner.autodocstring
-ms-python.pylint
-ultralytics.ultralytics-snippets
