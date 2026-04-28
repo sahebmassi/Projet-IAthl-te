@@ -1,3 +1,18 @@
+"""Outils de suivi de barre/disque et de trajectoire latérale.
+
+Les analyseurs Squat et Deadlift utilisent ces helpers pour:
+- choisir la classe YOLO pertinente ("barre", "disque", etc.),
+- sélectionner la meilleure boîte détectée,
+- lisser le centre du disque/barre par médiane,
+- convertir une suite de positions Y en phase latérale descente/remontée,
+- dessiner les boîtes, centres et trajectoires.
+
+Convention image importante:
+- Y augmente vers le bas.
+- dy positif => l'objet descend dans l'image.
+- dy négatif => l'objet monte dans l'image.
+"""
+
 import os
 import unicodedata
 from bisect import bisect_left
@@ -50,6 +65,13 @@ def resolve_barbell_target_class(
     model_names: Dict[int, str],
     preferred_kind: str = "auto",
 ) -> Optional[str]:
+    """Return the YOLO class name that should be tracked for the bar/disc model.
+
+    The same UI field can point to different models depending on the movement.
+    This helper normalizes labels and prefers aliases such as "disque", "disc",
+    "barre" or "barbell" so the rest of the code can ask for one class name.
+    """
+
     if not model_names:
         return None
 
@@ -85,6 +107,8 @@ def choisir_meilleure_box_barbell(
     model_names: Dict[int, str],
     target_class: Optional[str],
 ):
+    """Select the highest-confidence detection box for the requested class."""
+
     if result is None or result.boxes is None or len(result.boxes) == 0:
         return None
 
@@ -114,6 +138,12 @@ def choisir_meilleure_box_barbell(
 
 
 def centre_barbell_filtre(best_box, historique_centres: Deque[BarbellPoint]):
+    """Return a smoothed center for a detection box.
+
+    A median over the recent centers reduces jitter. Large jumps are rejected so
+    one bad YOLO detection does not create an unrealistic trajectory segment.
+    """
+
     if best_box is None:
         return None
 
@@ -144,6 +174,8 @@ def tracked_detection_signal(
     history: Deque[BarbellPoint],
     source: str,
 ) -> DetectionSignal:
+    """Run class filtering and smoothing, then package the result as a signal."""
+
     best_box = choisir_meilleure_box_barbell(result, model_names, target_class)
     if best_box is None:
         return DetectionSignal(source=source)
@@ -225,6 +257,8 @@ def draw_detection_signal(
     color_center: Tuple[int, int, int],
     label: Optional[str] = None,
 ) -> None:
+    """Draw a detection box, label and center point on an OpenCV image."""
+
     if signal.box is not None:
         x1, y1, x2, y2 = signal.box
         cv2.rectangle(image, (x1, y1), (x2, y2), color_box, 2)
@@ -250,6 +284,8 @@ def tracer_trajectoire(
     points: List[BarbellPoint],
     couleur: Tuple[int, int, int] = (0, 255, 0),
 ) -> None:
+    """Draw a polyline through tracked bar/disc centers."""
+
     for i in range(1, len(points)):
         cv2.line(image, points[i - 1], points[i], couleur, 2)
 
@@ -259,6 +295,8 @@ def comparer_trajectoires(
     rem_points: List[BarbellPoint],
     largeur_ref: Optional[float],
 ):
+    """Compare descent and ascent trajectories by interpolating X at common Y bins."""
+
     if len(desc_points) < 4 or len(rem_points) < 4 or not largeur_ref:
         return None, None
 
@@ -306,6 +344,8 @@ def phase_barre_depuis_vue_face(
     image_debut_remontee: Optional[int],
     image_fin_remontee: Optional[int],
 ) -> Optional[str]:
+    """Map face-view squat frame markers to an expected bar phase."""
+
     if image_debut_descente is None or indice_image < image_debut_descente:
         return None
     if image_debut_remontee is None or indice_image < image_debut_remontee:
@@ -322,6 +362,13 @@ def phase_barre_depuis_vue_laterale(
     compteur_descente: int,
     compteur_remontee: int,
 ) -> Tuple[Optional[str], int, int]:
+    """Déduit la phase latérale à partir du déplacement vertical.
+
+    La fonction ne décide rien depuis la vue face. Elle regarde uniquement le Y
+    actuel et le Y précédent du signal latéral. Les compteurs évitent de changer
+    de phase sur une frame bruitée.
+    """
+
     if y_barre_prev is None:
         return phase_actuelle, compteur_descente, compteur_remontee
 

@@ -1,3 +1,10 @@
+"""Rendu des images et du tableau de bord.
+
+Les analyseurs produisent des vues OpenCV annotées et des sections de texte.
+Ce module convertit les images vers Qt, compose les vues en mosaïque et formate
+les lignes du tableau de bord affiché dans l'interface.
+"""
+
 import os
 from typing import List, Optional
 
@@ -87,6 +94,8 @@ def panneau_unicode(hauteur: int, lignes: List[str], titre: str, cache_polices: 
 def composer_vues(
     vues: List[np.ndarray], panneau: Optional[np.ndarray] = None
 ) -> np.ndarray:
+    """Resize views to a common height and concatenate them horizontally."""
+
     if not vues:
         return panneau if panneau is not None else np.zeros((1, 1, 3), dtype=np.uint8)
 
@@ -104,6 +113,8 @@ def composer_vues(
 
 
 def frame_to_qimage(frame_bgr: np.ndarray) -> QImage:
+    """Convert an OpenCV BGR frame to a Qt QImage."""
+
     rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
     h, w, ch = rgb.shape
     bytes_per_line = ch * w
@@ -204,6 +215,8 @@ def build_dashboard_lines_from_sections(
     sections,
     journal,
 ) -> List[str]:
+    """Build final dashboard lines from analyzer-provided sections."""
+
     lignes = [
         f"Cadence : {ips_txt}",
         f"Image : {indice_image}    Temps : {t_sec:.2f} s",

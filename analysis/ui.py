@@ -1,3 +1,17 @@
+"""Interface PySide6 de l'application.
+
+MainWindow regroupe:
+- le choix du mouvement et du nombre de vues;
+- les chemins vidéos;
+- les modèles YOLO disponibles dans le dossier courant;
+- les boutons de contrôle du worker;
+- l'affichage vidéo et le tableau de bord texte.
+
+Le combo "FPS traitement" ne change pas le FPS source des vidéos. Il indique
+seulement combien de frames par seconde seront analysées pour accélérer le
+traitement. Les calculs de temps utilisent les FPS source lus par OpenCV.
+"""
+
 import os
 from pathlib import Path
 
@@ -55,7 +69,7 @@ class MainWindow(QMainWindow):
         root = QHBoxLayout(central)
 
         left = QVBoxLayout()
-        right = QVBoxLayout()
+        right = QHBoxLayout()
         root.addLayout(left, 1)
         root.addLayout(right, 3)
 
@@ -255,6 +269,8 @@ class MainWindow(QMainWindow):
             self.lateral_athlete_model_edit.setVisible(False)
         elif movement == "Souleve de terre":
             self.tracking_model_label.setText("Modele disque")
+            if new_model_name and new_model_name in [self.tracking_model_edit.itemText(i) for i in range(self.tracking_model_edit.count())]:
+                self.tracking_model_edit.setCurrentText(new_model_name)
             self.lateral_athlete_label.setVisible(True)
             self.lateral_athlete_model_edit.setVisible(True)
         else:
@@ -358,6 +374,8 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def start_analysis(self):
+        """Validate UI inputs, build the VideoWorker and start analysis."""
+
         if self.worker and self.worker.isRunning():
             QMessageBox.information(
                 self,
@@ -402,7 +420,7 @@ class MainWindow(QMainWindow):
         if mouvement == "Squat":
             barbell_model_path = tracking_model_path
         elif mouvement == "Souleve de terre" and needed > 1:
-            disk_model_path = tracking_model_path
+            disk_model_path = tracking_model_path or DISK_MODEL_DEFAULT
 
         if mouvement == "Squat" and not barbell_model_path:
             QMessageBox.warning(
@@ -474,10 +492,23 @@ class MainWindow(QMainWindow):
 
     @Slot(str)
     def update_dashboard(self, text: str):
-        self.dashboard_text.setPlainText(text)
+        """Render the analyzer dashboard text, highlighting the global verdict."""
+
+        # Colorer le verdict en rouge si faute, vert sinon
+        lines = text.split('\n')
+        for i, line in enumerate(lines):
+            if line.startswith("Verdict global :"):
+                if "FAUTE" in line:
+                    lines[i] = f"<span style='color: red;'>{line}</span>"
+                else:
+                    lines[i] = f"<span style='color: green;'>{line}</span>"
+                break
+        html_text = '<pre>' + '\n'.join(lines) + '</pre>'
+        self.dashboard_text.setHtml(html_text)
 
     @Slot(str)
     def show_error(self, message: str):
+        print("[ANALYSE ERROR]", message)
         QMessageBox.critical(self, "Erreur", message)
         self.statusBar().showMessage("Erreur")
 

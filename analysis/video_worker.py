@@ -1,4 +1,17 @@
+"""Thread de lecture vidéo et d'orchestration des analyseurs.
+
+Le worker lit toutes les vidéos en parallèle, avance chaque capture d'une frame
+à chaque boucle, puis n'envoie à l'analyseur qu'une frame sur N selon
+processing_fps. Ce sous-échantillonnage est commun aux vues, mais les indices
+envoyés restent des indices de frames source. C'est pourquoi les calculs de
+temps utilisent les FPS source des vidéos, pas le FPS traitement.
+
+La vue 1 fournit fps. La vue 2, si présente, fournit lateral_fps pour les
+mesures de vitesse sur le disque/barre latéral.
+"""
+
 import os
+import traceback
 from typing import List, Optional
 
 import cv2
@@ -54,10 +67,13 @@ class VideoWorker(QThread):
     def _emit_status(self, msg: str):
         self.status_ready.emit(msg)
 
-    def _build_analyzer(self, fps: float, frame_height: int):
+    def _build_analyzer(self, fps: float, frame_height: int, lateral_fps: Optional[float] = None):
+        """Instantiate the analyzer matching the selected movement."""
+
         common_kwargs = dict(
             video_paths=self.video_paths,
             fps=fps,
+            lateral_fps=lateral_fps,
             processing_fps=self.processing_fps,
             frame_height=frame_height,
             conf=self.conf,
@@ -74,6 +90,8 @@ class VideoWorker(QThread):
         raise ValueError(f"Mouvement non supporte: {self.movement}")
 
     def run(self):
+        """Read videos, apply frame skipping, and emit image/dashboard updates."""
+
         try:
             if not self.video_paths:
                 raise FileNotFoundError("Aucune video fournie.")
@@ -94,9 +112,19 @@ class VideoWorker(QThread):
                 images_par_seconde = float(caps[0].get(cv2.CAP_PROP_FPS))
                 if images_par_seconde <= 1e-6:
                     images_par_seconde = 30.0
+                lateral_fps = images_par_seconde
+                if len(caps) > 1:
+                    lateral_fps = float(caps[1].get(cv2.CAP_PROP_FPS))
+                    if lateral_fps <= 1e-6:
+                        lateral_fps = images_par_seconde
 
-                analyzer = self._build_analyzer(images_par_seconde, frame_height)
+                analyzer = self._build_analyzer(
+                    images_par_seconde,
+                    frame_height,
+                    lateral_fps,
+                )
 
+                last_frames = [None] * len(caps)
                 frame_count = 0
                 while not self._stop:
                     if self._restart:
@@ -107,16 +135,16 @@ class VideoWorker(QThread):
                         continue
 
                     frames = []
-                    ok_global = True
-                    for cap in caps:
+                    for i, cap in enumerate(caps):
                         ok, frame = cap.read()
-                        if not ok:
-                            ok_global = False
-                            break
-                        frames.append(frame)
+                        if ok:
+                            last_frames[i] = frame.copy()
+                            frames.append(frame)
+                        else:
+                            frames.append(last_frames[i] if last_frames[i] is not None else None)
 
-                    if not ok_global:
-                        self._emit_status("Fin de la video")
+                    if not any(f is not None for f in frames):
+                        self._emit_status("Fin de toutes les videos")
                         self.finished_cleanly.emit()
                         for cap in caps:
                             cap.release()
@@ -134,5 +162,5 @@ class VideoWorker(QThread):
                 for cap in caps:
                     cap.release()
 
-        except Exception as exc:
-            self.error_signal.emit(str(exc))
+        except Exception:
+            self.error_signal.emit(traceback.format_exc())
